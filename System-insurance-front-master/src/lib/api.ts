@@ -31,8 +31,18 @@ export const authApi = {
   login: (email: string, password: string) => api.post("/api/auth/login", { email, password }),
   getMe: () => api.get("/api/auth/me"),
   getAgents: () => api.get("/api/auth/agents"),
+  getStaff: () => api.get("/api/auth/staff"),
   createAgent: (data: any) => api.post("/api/auth/agents", data),
+  createSubagent: (data: any) => api.post("/api/auth/agents", { ...data, role: "subagent" }),
   updateAgent: (id: number, data: any) => api.put(`/api/auth/agents/${id}`, data),
+};
+
+export const bonusesApi = {
+  getAll: () => api.get("/api/bonuses"),
+  getMine: () => api.get("/api/bonuses/me"),
+  create: (data: any) => api.post("/api/bonuses", data),
+  update: (id: number, data: any) => api.put(`/api/bonuses/${id}`, data),
+  delete: (id: number) => api.delete(`/api/bonuses/${id}`),
 };
 
 export const policiesApi = {
@@ -62,6 +72,11 @@ export const reportsApi = {
     api.get(`/api/reports/agent/${id}/export`, { params: { format: "pdf" }, responseType: "blob" }),
   exportAgentExcel: (id: number) =>
     api.get(`/api/reports/agent/${id}/export`, { params: { format: "excel" }, responseType: "blob" }),
+  getMy: () => api.get("/api/reports/my"),
+  exportMyPDF: () =>
+    api.get(`/api/reports/my/export`, { params: { format: "pdf" }, responseType: "blob" }),
+  exportMyExcel: () =>
+    api.get(`/api/reports/my/export`, { params: { format: "excel" }, responseType: "blob" }),
 };
 
 export const pricingRulesApi = {

@@ -7,10 +7,85 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowLeft, ChevronDown, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, X, Check } from "lucide-react";
 import Link from "next/link";
 
 // ── Sabit tiplər və məlumatlar ────────────────────────────────────────────────
+
+// Yuvam (Paşa Sığorta) paket və təminat məlumatları
+const HOME_RISKS = [
+  "Təbii fəlakət",
+  "Kənar şəxsə dəyən zərər",
+  "Subasma",
+  "Yanğın",
+  "Qaz partlayışı",
+  "Kənar şəxsin vurduğu zərər",
+  "Oğurluq",
+  "Yararsız hala düşmə",
+  "Təsadüfi zərərlər",
+];
+
+const HOME_PACKAGES = [
+  {
+    key: "uzerlik",
+    name: "Üzərlik",
+    icon: "🪬",
+    popular: false,
+    covered: 3, // yuxarıdan neçə risk daxildir
+    options: [{ cov: 20000, home: 16000, goods: 0, liab: 4000, m: 4, y: 40 }],
+  },
+  {
+    key: "gozmuncugu",
+    name: "Gözmuncuğu",
+    icon: "🧿",
+    popular: true,
+    covered: 6,
+    options: [
+      { cov: 25000, home: 20000, goods: 2500, liab: 2500, m: 8, y: 80 },
+      { cov: 50000, home: 40000, goods: 5000, liab: 5000, m: 12, y: 120 },
+    ],
+  },
+  {
+    key: "nal",
+    name: "Nal",
+    icon: "🐎",
+    popular: false,
+    covered: 9,
+    options: [
+      { cov: 50000, home: 40000, goods: 5000, liab: 5000, m: 19, y: 190 },
+      { cov: 100000, home: 70000, goods: 10000, liab: 20000, m: 30, y: 300 },
+      { cov: 200000, home: 160000, goods: 15000, liab: 25000, m: 55, y: 550 },
+    ],
+  },
+];
+
+// Ölkələr (Afrika ölkələri xaric) — Sığortalı ölkə seçimi üçün
+const COUNTRIES = [
+  "Azərbaycan",
+  // Avropa
+  "Türkiyə", "Rusiya", "Ukrayna", "Gürcüstan", "Belarus", "Almaniya", "Fransa", "İtaliya",
+  "İspaniya", "Portuqaliya", "Böyük Britaniya", "İrlandiya", "Hollandiya", "Belçika", "Lüksemburq",
+  "İsveçrə", "Avstriya", "Polşa", "Çexiya", "Slovakiya", "Macarıstan", "Rumıniya", "Bolqarıstan",
+  "Yunanıstan", "Xorvatiya", "Sloveniya", "Serbiya", "Bosniya və Herseqovina", "Monteneqro",
+  "Şimali Makedoniya", "Albaniya", "Kosovo", "Litva", "Latviya", "Estoniya", "Finlandiya",
+  "İsveç", "Norveç", "Danimarka", "İslandiya", "Malta", "Kipr", "Moldova", "San-Marino",
+  "Monako", "Lixtenşteyn", "Andorra", "Vatikan",
+  // Asiya
+  "Qazaxıstan", "Özbəkistan", "Türkmənistan", "Qırğızıstan", "Tacikistan", "Çin", "Yaponiya",
+  "Cənubi Koreya", "Şimali Koreya", "Monqolustan", "Hindistan", "Pakistan", "Banqladeş", "Nepal",
+  "Butan", "Şri-Lanka", "Maldiv", "Əfqanıstan", "İran", "İraq", "Suriya", "Livan", "İordaniya",
+  "İsrail", "Fələstin", "Səudiyyə Ərəbistanı", "Küveyt", "Qətər", "Bəhreyn",
+  "Birləşmiş Ərəb Əmirlikləri", "Oman", "Yəmən", "Tailand", "Vyetnam", "Kamboca", "Laos",
+  "Myanma", "Malayziya", "Sinqapur", "İndoneziya", "Filippin", "Bruney", "Şərqi Timor",
+  // Amerika
+  "ABŞ", "Kanada", "Meksika", "Qvatemala", "Beliz", "Salvador", "Honduras", "Nikaraqua",
+  "Kosta-Rika", "Panama", "Kuba", "Yamayka", "Haiti", "Dominikan Respublikası", "Baham adaları",
+  "Barbados", "Trinidad və Tobaqo", "Kolumbiya", "Venesuela", "Ekvador", "Peru", "Boliviya",
+  "Braziliya", "Paraqvay", "Uruqvay", "Argentina", "Çili", "Qayana", "Surinam",
+  // Okeaniya
+  "Avstraliya", "Yeni Zelandiya", "Fici", "Papua Yeni Qvineya", "Solomon adaları", "Vanuatu",
+  "Samoa", "Tonqa", "Kiribati", "Mikroneziya", "Marşal adaları", "Palau", "Nauru", "Tuvalu",
+];
 
 type PolicyType = "auto" | "casco" | "property" | "travel";
 
@@ -539,7 +614,7 @@ export default function NewPolicyPage() {
   
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className={`${isPashaYuvam ? "max-w-5xl" : "max-w-3xl"} space-y-6`}>
       <div className="flex items-center gap-3">
         <Link href="/policies"><Button variant="ghost" size="icon"><ArrowLeft size={18} /></Button></Link>
         <h1 className="text-2xl font-bold text-slate-900">Yeni Sığorta</h1>
@@ -1647,35 +1722,68 @@ export default function NewPolicyPage() {
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Sığorta şirkəti</Label>
-          <Input value="Paşa Sığorta" disabled className="bg-muted font-bold text-slate-900" />
+          <Input value="Paşa Sığorta" disabled className="bg-muted font-medium" />
         </div>
         <div className="space-y-2">
-          <Label>Vasitəçi tipi</Label>
-          <Input value="Rəsmi Lisenziyalı Agent və ya Broker" disabled className="bg-muted" />
+          <Label>Rəsmi Lisenziyalı Agent və ya Broker</Label>
+          <Input
+            value={details.broker_name || ""}
+            onChange={e => setDetail("broker_name", e.target.value)}
+            placeholder="Agent / Broker adı"
+          />
         </div>
         <div className="space-y-2">
           <Label>Satış Kanalı və ya filial</Label>
           <Input
             value={details.sales_channel || ""}
             onChange={e => setDetail("sales_channel", e.target.value)}
-            placeholder="Filial və ya kanal adı"
+            placeholder="Filial adı"
           />
         </div>
         <div className="space-y-2">
-          <Label>Ukrator: Menecer (Soyadı, Adı)</Label>
+          <Label>Ukrator: Menecer - Soyadı , Adı</Label>
           <Input
-            value={details.curator_name || ""}
-            onChange={e => setDetail("curator_name", e.target.value)}
-            placeholder="Soyadı, Adı"
+            value={details.manager_name || ""}
+            onChange={e => setDetail("manager_name", e.target.value)}
+            placeholder="Menecer adı"
           />
         </div>
-        <div className="space-y-2 md:col-span-2">
-          <Label>Subagent (Soyadı, Adı)</Label>
+        <div className="space-y-2">
+          <Label>Subagent: Soyadı Adı</Label>
           <Input
             value={details.subagent_name || ""}
             onChange={e => setDetail("subagent_name", e.target.value)}
-            placeholder="Soyadı, Adı"
+            placeholder="Subagent məlumatları"
           />
+        </div>
+
+        {/* Komissiya alt sahələri */}
+        <div className="space-y-2">
+          <Label>Hesablanmış komissiya % :</Label>
+          <Input
+            type="number"
+            value={details.calculated_commission_percent || ""}
+            onChange={e => setDetail("calculated_commission_percent", e.target.value)}
+            placeholder="?"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Komissiya % :</Label>
+          <Input
+            type="number"
+            value={details.commission_percent || ""}
+            onChange={e => {
+              const pct = parseFloat(e.target.value) || 0;
+              setDetail("commission_percent", e.target.value);
+              const finPrem = details.final_premium || 0;
+              setDetail("commission_amount", ((finPrem * pct) / 100).toFixed(2));
+            }}
+            placeholder="?"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Komissiya (azn) :</Label>
+          <Input value={`${details.commission_amount || "0.00"} AZN`} disabled className="bg-muted" />
         </div>
       </CardContent>
     </Card>
@@ -2338,7 +2446,7 @@ export default function NewPolicyPage() {
             <Input
               value={details.property_zip_code || ""}
               onChange={e => setDetail("property_zip_code", e.target.value)}
-              placeholder="Poçt indeksi"
+              placeholder="AZ1000"
             />
           </div>
           <div className="col-span-1 md:col-span-3 space-y-2">
@@ -2419,7 +2527,12 @@ export default function NewPolicyPage() {
           </div>
           <div className="space-y-2">
             <Label>Ölkə:</Label>
-            <Input value="Azərbaycan" disabled className="bg-muted" />
+            <SearchableSelect
+              label=""
+              value={details.customer_country || "Azərbaycan"}
+              onChange={v => setDetail("customer_country", v)}
+              options={COUNTRIES}
+            />
           </div>
           <div className="space-y-2">
             <Label>Bölgə ( Şəhər ):</Label>
@@ -2427,7 +2540,7 @@ export default function NewPolicyPage() {
           </div>
           <div className="space-y-2">
             <Label>Poçt indeksi:</Label>
-            <Input value={details.customer_zip_code || "AZ1000"} onChange={e => setDetail("customer_zip_code", e.target.value)} />
+            <Input value={details.customer_zip_code || ""} onChange={e => setDetail("customer_zip_code", e.target.value)} placeholder="AZ1000" />
           </div>
           <div className="col-span-1 md:col-span-1 space-y-2">
             <Label>Ünvan:</Label>
@@ -2451,94 +2564,157 @@ export default function NewPolicyPage() {
         <CardTitle>Məbləğlər</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label className="font-semibold block mb-3">Paket və Təminat məbləği seçimi:</Label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
-            {/* Üzərlik Paketi */}
-            <Button
-              type="button"
-              variant={details.selected_package === "uzerlik" ? "default" : "outline"}
-              className="h-auto p-4 flex flex-col items-start gap-1 text-left border-slate-300 w-full"
-              onClick={() => {
-                setDetail("selected_package", "uzerlik");
-                setDetail("insurance_amount", 20000);
-                setDetail("property_cover", 16000);
-                setDetail("goods_cover", 0);
-                setDetail("liability_cover", 4000);
-                setDetail("monthly_premium", 4);
-                setDetail("annual_premium", 40);
-                setDetail("final_premium", 40);
-              }}
-            >
-              <span className="font-bold text-base block">Üzərlik</span>
-              <span className="text-xs text-muted-foreground mt-1">Təminat: 20 000 AZN</span>
-              <span className="text-xs">Daşınmaz əmlak: 16 000 AZN</span>
-              <span className="text-xs">Əşyalar: 0 AZN</span>
-              <span className="text-xs">Məsuliyyət: 4 000 AZN</span>
-              <span className="font-semibold text-xs text-primary mt-2">İllik: 40 AZN / Aylıq: 4 AZN</span>
-            </Button>
+        <div className="space-y-4">
+          {(() => {
+            const period = details.premium_period || "monthly";
+            const isMonthly = period === "monthly";
+            const setPeriod = (pp: string) => {
+              setDetail("premium_period", pp);
+              if (details.monthly_premium || details.annual_premium) {
+                const base = pp === "monthly" ? (details.monthly_premium || 0) : (details.annual_premium || 0);
+                const disc = parseFloat(details.discount_percent) || 0;
+                setDetail("final_premium", (base - (base * disc) / 100).toFixed(2));
+              }
+            };
+            return (
+              <>
+                {/* Başlıq + Aylıq / İllik seçimi */}
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <Label className="font-semibold text-base">Paket və Təminat məbləği seçimi</Label>
+                  <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setPeriod("monthly")}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-full transition ${isMonthly ? "bg-primary text-primary-foreground shadow" : "text-slate-600"}`}
+                    >
+                      Aylıq
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPeriod("yearly")}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-full transition ${!isMonthly ? "bg-primary text-primary-foreground shadow" : "text-slate-600"}`}
+                    >
+                      İllik
+                    </button>
+                  </div>
+                </div>
 
-            {/* Gözmuncuğu Paketi */}
-            <div className="flex flex-col gap-2 border border-slate-200 p-2 rounded-xl bg-slate-50/50">
-              <span className="font-bold text-sm px-2 text-slate-700">Gözmuncuğu Paketləri</span>
-              {[
-                { sub: 20000, prop: 25000, goods: 2500, liab: 2500, m: 4, y: 80 },
-                { sub: 50000, prop: 40000, goods: 5000, liab: 5000, m: 12, y: 120 }
-              ].map((p, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant={details.selected_package === `gozmuncugu_${p.sub}` ? "default" : "outline"}
-                  className="h-auto p-2 text-xs flex flex-col items-start gap-0.5 border-slate-300 w-full"
-                  onClick={() => {
-                    setDetail("selected_package", `gozmuncugu_${p.sub}`);
-                    setDetail("insurance_amount", p.sub);
-                    setDetail("property_cover", p.prop);
-                    setDetail("goods_cover", p.goods);
-                    setDetail("liability_cover", p.liab);
-                    setDetail("monthly_premium", p.m);
-                    setDetail("annual_premium", p.y);
-                    setDetail("final_premium", p.y);
-                  }}
-                >
-                  <span className="font-semibold">Təminat: {p.sub.toLocaleString()} AZN</span>
-                  <span className="text-[11px] opacity-80">İllik: {p.y} AZN / Aylıq: {p.m} AZN</span>
-                </Button>
-              ))}
-            </div>
+                {/* Paket kartları */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
+                  {HOME_PACKAGES.map((pkg) => {
+                    const selCov = details[`${pkg.key}_cov`] ?? pkg.options[0].cov;
+                    const opt = pkg.options.find((o) => o.cov === selCov) || pkg.options[0];
+                    const displayPrice = isMonthly ? Math.min(...pkg.options.map((o) => o.m)) : Math.min(...pkg.options.map((o) => o.y));
+                    const multi = pkg.options.length > 1;
+                    const isSelected = details.selected_package === `${pkg.key}_${opt.cov}`;
 
-            {/* Nal Paketi */}
-            <div className="flex flex-col gap-2 border border-slate-200 p-2 rounded-xl bg-slate-50/50">
-              <span className="font-bold text-sm px-2 text-slate-700">Nal Paketləri</span>
-              {[
-                { sub: 50000, prop: 40000, goods: 5000, liab: 5000, m: 19, y: 190 },
-                { sub: 100000, prop: 70000, goods: 10000, liab: 20000, m: 30, y: 300 },
-                { sub: 200000, prop: 160000, goods: 15000, liab: 25000, m: 55, y: 550 }
-              ].map((p, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant={details.selected_package === `nal_${p.sub}` ? "default" : "outline"}
-                  className="h-auto p-2 text-xs flex flex-col items-start gap-0.5 border-slate-300 w-full"
-                  onClick={() => {
-                    setDetail("selected_package", `nal_${p.sub}`);
-                    setDetail("insurance_amount", p.sub);
-                    setDetail("property_cover", p.prop);
-                    setDetail("goods_cover", p.goods);
-                    setDetail("liability_cover", p.liab);
-                    setDetail("monthly_premium", p.m);
-                    setDetail("annual_premium", p.y);
-                    setDetail("final_premium", p.y);
-                  }}
-                >
-                  <span className="font-semibold">Təminat: {p.sub.toLocaleString()} AZN</span>
-                  <span className="text-[11px] opacity-80">İllik: {p.y} AZN / Aylıq: {p.m} AZN</span>
-                </Button>
-              ))}
-            </div>
+                    const applyOption = (o: typeof opt) => {
+                      const base = isMonthly ? o.m : o.y;
+                      const disc = parseFloat(details.discount_percent) || 0;
+                      setDetail("selected_package", `${pkg.key}_${o.cov}`);
+                      setDetail(`${pkg.key}_cov`, o.cov);
+                      setDetail("insurance_amount", o.cov);
+                      setDetail("property_cover", o.home);
+                      setDetail("goods_cover", o.goods);
+                      setDetail("liability_cover", o.liab);
+                      setDetail("monthly_premium", o.m);
+                      setDetail("annual_premium", o.y);
+                      setDetail("final_premium", (base - (base * disc) / 100).toFixed(2));
+                    };
 
-          </div>
+                    return (
+                      <div
+                        key={pkg.key}
+                        className={`relative rounded-2xl border bg-white p-5 flex flex-col ${pkg.popular ? "border-primary shadow-lg md:-mt-2" : "border-slate-200 shadow-sm"}`}
+                      >
+                        {pkg.popular && (
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full shadow whitespace-nowrap">
+                            Ən sevilən
+                          </span>
+                        )}
+
+                        {/* Başlıq */}
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-bold text-slate-800">{pkg.name}</h3>
+                          <span className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 text-xl">{pkg.icon}</span>
+                        </div>
+
+                        {/* Qiymət */}
+                        <div className="mt-4">
+                          <span className="text-xs text-slate-500">{isMonthly ? "Aylıq" : "İllik"}</span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-extrabold text-slate-900">{displayPrice}</span>
+                            <span className="text-lg font-semibold text-slate-600">₼{multi ? "-dan" : ""}</span>
+                          </div>
+                        </div>
+
+                        {/* Sığorta təminatı seçimi */}
+                        <div className="mt-4">
+                          <span className="text-xs text-slate-500 block mb-1.5">Sığorta təminatı</span>
+                          <div className="flex w-full rounded-lg border border-slate-200 bg-slate-50 p-1 gap-1">
+                            {pkg.options.map((o) => (
+                              <button
+                                key={o.cov}
+                                type="button"
+                                onClick={() => {
+                                  setDetail(`${pkg.key}_cov`, o.cov);
+                                  if (details.selected_package?.startsWith(pkg.key + "_")) applyOption(o);
+                                }}
+                                className={`flex-1 text-xs font-semibold py-1.5 px-1 rounded-md transition whitespace-nowrap ${o.cov === selCov ? "bg-primary text-primary-foreground shadow" : "text-slate-600 hover:bg-white"}`}
+                              >
+                                {o.cov.toLocaleString()} ₼
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Təminat bölgüsü */}
+                        <div className="mt-4 space-y-2 text-sm">
+                          <div className="flex justify-between items-baseline gap-2">
+                            <span className="text-slate-500">Eviniz üçün</span>
+                            <span className="font-semibold text-slate-800 whitespace-nowrap">{opt.home.toLocaleString()} AZN</span>
+                          </div>
+                          <div className="flex justify-between items-baseline gap-2">
+                            <span className="text-slate-500">Əşyalar üçün</span>
+                            <span className="font-semibold text-slate-800 whitespace-nowrap">{opt.goods.toLocaleString()} AZN</span>
+                          </div>
+                          <div className="flex justify-between items-baseline gap-2">
+                            <span className="text-slate-500 whitespace-nowrap">Məsuliyyət riskləri üçün</span>
+                            <span className="font-semibold text-slate-800 whitespace-nowrap">{opt.liab.toLocaleString()} AZN</span>
+                          </div>
+                        </div>
+
+                        {/* Sığortala düyməsi */}
+                        <Button
+                          type="button"
+                          variant={isSelected ? "default" : "outline"}
+                          className={`w-full mt-5 ${isSelected ? "" : "border-primary text-primary hover:bg-primary hover:text-primary-foreground"}`}
+                          onClick={() => applyOption(opt)}
+                        >
+                          {isSelected ? "Seçildi ✓" : "Sığortala"}
+                        </Button>
+
+                        {/* Təminata daxil olan risklər */}
+                        <div className="mt-5 space-y-2.5 border-t border-slate-100 pt-4">
+                          {HOME_RISKS.map((risk, i) => {
+                            const ok = i < pkg.covered;
+                            return (
+                              <div key={i} className="flex items-center gap-2 text-sm">
+                                <span className={`h-5 w-5 shrink-0 flex items-center justify-center rounded-full ${ok ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                                  {ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                                </span>
+                                <span className={ok ? "text-slate-700" : "text-slate-400"}>{risk}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* Seçilmiş Paket Detalları */}
@@ -2561,19 +2737,6 @@ export default function NewPolicyPage() {
           </div>
         </div>
 
-        {/* Sığorta Riskləri İndikatoru */}
-        <div className="space-y-2">
-          <Label className="font-semibold text-xs uppercase tracking-wider text-slate-500">Sığorta Riskləri (Təminata daxildir)</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 text-xs text-emerald-800">
-            {["Tabii fəlakət", "Kənar şəxsə dəyən zərər", "Subasma", "Yanğın", "Qaz partlayışı", "Kənar şəxsin vurduğu zərər", "Oğurluq", "Yararsız hala düşmə", "Təsadüfi zərərlər"].map((risk, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                {risk}
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Maliyyə Hesablamaları və Komissiya */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-dashed">
           <div className="space-y-2">
@@ -2585,13 +2748,15 @@ export default function NewPolicyPage() {
               onChange={e => {
                 const pct = parseFloat(e.target.value) || 0;
                 setDetail("discount_percent", e.target.value);
-                const annual = details.annual_premium || 0;
-                setDetail("final_premium", (annual - (annual * pct) / 100).toFixed(2));
+                const base = (details.premium_period || "monthly") === "monthly"
+                  ? (details.monthly_premium || 0)
+                  : (details.annual_premium || 0);
+                setDetail("final_premium", (base - (base * pct) / 100).toFixed(2));
               }}
             />
           </div>
           <div className="space-y-2">
-            <Label>Yekun sığorta haqqı (İllik):</Label>
+            <Label>Yekun sığorta haqqı ({(details.premium_period || "monthly") === "monthly" ? "Aylıq" : "İllik"}):</Label>
             <Input value={`${details.final_premium || 0} AZN`} disabled className="bg-muted font-semibold text-primary" />
           </div>
         </div>
@@ -2603,7 +2768,7 @@ export default function NewPolicyPage() {
       <CardHeader>
         <CardTitle>Vasitəçilər haqqında məlumat</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Sığorta şirkəti</Label>
           <Input value="Paşa Sığorta" disabled className="bg-muted font-medium" />
@@ -2857,7 +3022,7 @@ export default function NewPolicyPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Poçt indeksi: AZ1000</Label>
-                    <Input value={details.customer_zip_code || "AZ1000"} onChange={e => setDetail("customer_zip_code", e.target.value)} />
+                    <Input  value={details.customer_zip_code || "AZ...."} onChange={e => setDetail("customer_zip_code", e.target.value)} />
                   </div>
                   <div className="col-span-1 md:col-span-1 space-y-2">
                     <Label>Ünvan:</Label>
@@ -4151,7 +4316,7 @@ export default function NewPolicyPage() {
 
 
         {/* ── Other sub-types — generic personal info form, no Axtar, no notes */}
-        {showFormSection && !isAvtonəqliyyat && !isDaşınmazEmlak && !isDəimmis && !isYaşılKart && !isKasko && !isPashaEvEsyalari && (
+        {showFormSection && !isAvtonəqliyyat && !isDaşınmazEmlak && !isDəimmis && !isYaşılKart && !isKasko && !isPashaEvEsyalari && !isPashaYuvam && (
           <Card>
             <CardHeader>
               <CardTitle>Şəxsi məlumatlarınızı daxil edin</CardTitle>
@@ -4194,13 +4359,14 @@ export default function NewPolicyPage() {
           <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>
         )}
 
-        {showFormSection && (
+        {showFormSection && !isPashaYuvam && (
           <div className="flex items-start gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
             <span className="shrink-0 mt-0.5">ℹ</span>
             <span>İrəli düyməsini sıxmaqla, siz bizə gedişatınızı yadda saxlamağa və məlumatlarınızın təhlükəsizliyini təmin etməyə kömək edirsiniz.</span>
           </div>
         )}
 
+        {!isPashaYuvam && (
         <div className="flex gap-3">
           <Link href="/policies">
             <Button type="button" variant="outline"
@@ -4245,6 +4411,7 @@ export default function NewPolicyPage() {
             </>
           )}
         </div>
+        )}
       </form>
     </div>
   );

@@ -21,21 +21,29 @@ export default function AgentsPage() {
   const [allPolicies, setAllPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", commission_rate: "10" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", commission_rate: "10", role: "agent", parent_agent_id: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [expandedAgent, setExpandedAgent] = useState<number | null>(null);
 
+  const [loadError, setLoadError] = useState("");
+
   const load = async () => {
     setLoading(true);
-    const [agentsRes, policiesRes] = await Promise.all([
-      authApi.getAgents(),
-      policiesApi.getAll(),
-    ]);
-    setAgents(agentsRes.data.agents);
-    setAllPolicies(policiesRes.data.policies);
-    setLoading(false);
+    setLoadError("");
+    try {
+      const [agentsRes, policiesRes] = await Promise.all([
+        authApi.getAgents(),
+        policiesApi.getAll(),
+      ]);
+      setAgents(agentsRes.data.agents);
+      setAllPolicies(policiesRes.data.policies);
+    } catch (err: any) {
+      setLoadError(err?.response?.data?.message || "Məlumatları yükləmək mümkün olmadı. Server işləyirmi?");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -64,9 +72,25 @@ export default function AgentsPage() {
     setSaving(true);
     setError("");
     try {
-      await authApi.createAgent({ ...form, commission_rate: Number(form.commission_rate) });
+      if (form.role === "subagent") {
+        if (!form.parent_agent_id) throw { response: { data: { message: "Subagent üçün valideyn agent seçin" } } };
+        await authApi.createSubagent({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          commission_rate: Number(form.commission_rate),
+          parent_agent_id: Number(form.parent_agent_id),
+        });
+      } else {
+        await authApi.createAgent({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          commission_rate: Number(form.commission_rate),
+        });
+      }
       setShowForm(false);
-      setForm({ name: "", email: "", password: "", commission_rate: "10" });
+      setForm({ name: "", email: "", password: "", commission_rate: "10", role: "agent", parent_agent_id: "" });
       load();
     } catch (err: any) {
       setError(err.response?.data?.message || "Xəta baş verdi");
@@ -89,12 +113,52 @@ export default function AgentsPage() {
         </Button>
       </div>
 
-      {/* Yeni agent forması */}
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3">
+          <span>{loadError}</span>
+          <Button size="sm" variant="outline" onClick={load}>Yenidən cəhd et</Button>
+        </div>
+      )}
+
+      {/* Yeni agent / subagent forması */}
       {showForm && (
         <Card className="border-primary/30">
-          <CardHeader><CardTitle>Yeni Agent Yarat</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{form.role === "subagent" ? "Yeni Subagent Yarat" : "Yeni Agent Yarat"}</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Rol seçimi */}
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Növ *</Label>
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+                  <button type="button" onClick={() => setForm(f => ({ ...f, role: "agent", parent_agent_id: "" }))}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${form.role === "agent" ? "bg-primary text-white shadow" : "text-slate-600"}`}>
+                    Agent
+                  </button>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, role: "subagent" }))}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${form.role === "subagent" ? "bg-primary text-white shadow" : "text-slate-600"}`}>
+                    Subagent
+                  </button>
+                </div>
+              </div>
+
+              {form.role === "subagent" && (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Valideyn agent *</Label>
+                  <select
+                    value={form.parent_agent_id}
+                    onChange={e => setForm(f => ({ ...f, parent_agent_id: e.target.value }))}
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">— Agent seçin —</option>
+                    {agents.map(a => (
+                      <option key={a.id} value={a.id}>{a.name} ({a.email})</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">Subagent seçilmiş agentin altında çalışacaq.</p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label>Ad Soyad *</Label>
                 <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
@@ -113,7 +177,7 @@ export default function AgentsPage() {
               </div>
               {error && <div className="sm:col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>}
               <div className="sm:col-span-2">
-                <Button type="submit" loading={saving}>Agent yarat</Button>
+                <Button type="submit" loading={saving}>{form.role === "subagent" ? "Subagent yarat" : "Agent yarat"}</Button>
               </div>
             </form>
           </CardContent>
@@ -194,6 +258,9 @@ export default function AgentsPage() {
                       <p className="font-semibold text-sm">{agentPolicies.length} sığorta</p>
                       <p className="text-xs text-muted-foreground">{formatCurrency(totalPremium)}</p>
                       <p className="text-xs text-muted-foreground">Komissiya: {agent.commission_rate}%</p>
+                      {agent.subagents && agent.subagents.length > 0 && (
+                        <p className="text-xs text-indigo-600 font-medium">{agent.subagents.length} subagent</p>
+                      )}
                     </div>
 
                     <button className="ml-2 text-muted-foreground">
@@ -204,6 +271,35 @@ export default function AgentsPage() {
                   {/* Genişlənmiş sığorta cədvəli */}
                   {isExpanded && (
                     <div className="border-t">
+                      {/* Subagentlər */}
+                      {agent.subagents && agent.subagents.length > 0 && (
+                        <div className="px-4 py-3 border-b bg-indigo-50/40">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-700 mb-2">
+                            Subagentlər ({agent.subagents.length})
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {agent.subagents.map((s: any) => (
+                              <div key={s.id} className="flex items-center gap-2 bg-white border border-indigo-200 rounded-lg px-3 py-1.5">
+                                <div className="w-6 h-6 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xs font-bold">
+                                  {s.name.charAt(0)}
+                                </div>
+                                <div className="text-sm">
+                                  <span className="font-medium">{s.name}</span>
+                                  <span className="text-xs text-muted-foreground ml-1.5">{s.email}</span>
+                                </div>
+                                <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium ${s.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                  {s.is_active ? "Aktiv" : "Deaktiv"}
+                                </span>
+                                <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]"
+                                  onClick={(e) => { e.stopPropagation(); handleToggleActive(s); }}>
+                                  {s.is_active ? "Deaktiv" : "Aktiv"}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Növ üzrə xülasə */}
                       <div className="px-4 py-3 bg-gray-50 flex gap-4 flex-wrap border-b">
                         {Object.entries(typeSummary).map(([type, data]: any) => (

@@ -36,7 +36,7 @@ const getPolicies = async (user) => {
     )
     .orderBy('policies.created_at', 'desc');
 
-  if (user.role === 'agent') {
+  if (user.role === 'agent' || user.role === 'subagent') {
     query = query.where('policies.agent_id', user.id);
   }
 
@@ -65,7 +65,7 @@ const getPolicyById = async (id, user) => {
     )
     .where('policies.id', id);
 
-  if (user.role === 'agent') {
+  if (user.role === 'agent' || user.role === 'subagent') {
     query = query.where('policies.agent_id', user.id);
   }
 

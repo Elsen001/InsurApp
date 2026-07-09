@@ -14,5 +14,8 @@ export const config = {
     "/reports/:path*",
     "/agents/:path*",
     "/pricing-rules/:path*",
+    "/bonuses/:path*",
+    "/my-bonuses/:path*",
+    "/my-report/:path*",
   ],
 };

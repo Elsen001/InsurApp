@@ -39,6 +39,15 @@ const getAgents = async (req, res) => {
   }
 };
 
+const getStaff = async (req, res) => {
+  try {
+    const staff = await authService.getStaff();
+    res.json({ success: true, staff });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const createAgent = async (req, res) => {
   try {
     const agentSchema = z.object({
@@ -46,6 +55,8 @@ const createAgent = async (req, res) => {
       email: z.string().email(),
       password: z.string().min(6),
       commission_rate: z.number().min(0).max(100).optional(),
+      role: z.enum(['agent', 'subagent']).optional(),
+      parent_agent_id: z.number().int().positive().optional(),
     });
     const data = agentSchema.parse(req.body);
     const agent = await authService.createAgent(data);
@@ -65,4 +76,4 @@ const updateAgent = async (req, res) => {
   }
 };
 
-module.exports = { login, logout, getMe, getAgents, createAgent, updateAgent };
+module.exports = { login, logout, getMe, getAgents, getStaff, createAgent, updateAgent };

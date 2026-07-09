@@ -3,18 +3,21 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, FileText, CreditCard, BarChart3, Users, ShieldCheck, LogOut, Menu, X, Percent
+  LayoutDashboard, FileText, CreditCard, BarChart3, Users, ShieldCheck, LogOut, Menu, X, Percent, Gift
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const navItems = [
-  { href: "/dashboard", label: "İdarə Paneli", icon: LayoutDashboard, roles: ["admin", "agent"] },
-  { href: "/policies", label: "Sığorta al", icon: FileText, roles: ["admin", "agent"] },
-  { href: "/payments", label: "Ödənişlər", icon: CreditCard, roles: ["admin", "agent"] },
+  { href: "/dashboard", label: "İdarə Paneli", icon: LayoutDashboard, roles: ["admin", "agent", "subagent"] },
+  { href: "/policies", label: "Sığorta al", icon: FileText, roles: ["admin", "agent", "subagent"] },
+  { href: "/payments", label: "Ödənişlər", icon: CreditCard, roles: ["admin", "agent", "subagent"] },
+  { href: "/my-report", label: "Hesabatım", icon: BarChart3, roles: ["agent", "subagent"] },
+  { href: "/my-bonuses", label: "Bonuslarım", icon: Gift, roles: ["agent", "subagent"] },
   { href: "/reports", label: "Hesabatlar", icon: BarChart3, roles: ["admin"] },
   { href: "/agents", label: "Agentlər", icon: Users, roles: ["admin"] },
-  { href: "/pricing-rules", label: "Bonus Qaydaları", icon: Percent, roles: ["admin"] },
+  { href: "/bonuses", label: "Bonuslar", icon: Gift, roles: ["admin"] },
+  { href: "/pricing-rules", label: "Qiymət Qaydaları", icon: Percent, roles: ["admin"] },
 ];
 
 export function Sidebar() {
@@ -52,7 +55,7 @@ export function Sidebar() {
           </div>
           <div>
             <p className="font-bold text-sm">Sığorta Sistemi</p>
-            <p className="text-xs text-slate-400 capitalize">{role === "admin" ? "Admin" : "Agent"}</p>
+            <p className="text-xs text-slate-400 capitalize">{role === "admin" ? "Admin" : role === "subagent" ? "Subagent" : "Agent"}</p>
           </div>
         </div>
 

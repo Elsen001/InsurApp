@@ -36,16 +36,50 @@ const getMe = async (userId) => {
 };
 
 const getAgents = async () => {
-  return db('users').where({ role: 'agent', is_active: true }).select('id', 'name', 'email', 'commission_rate', 'created_at');
+  const agents = await db('users')
+    .where({ role: 'agent' })
+    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'created_at');
+  const subs = await db('users')
+    .where({ role: 'subagent' })
+    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'parent_agent_id', 'created_at');
+  return agents.map((a) => ({
+    ...a,
+    subagents: subs.filter((s) => s.parent_agent_id === a.id),
+  }));
+};
+
+// Bonus təyini üçün: bütün agent və subagentlər (düz siyahı)
+const getStaff = async () => {
+  return db('users')
+    .whereIn('role', ['agent', 'subagent'])
+    .andWhere({ is_active: true })
+    .select('id', 'name', 'email', 'role', 'parent_agent_id')
+    .orderBy('role', 'asc')
+    .orderBy('name', 'asc');
 };
 
 const createAgent = async (data) => {
-  const { name, email, password, commission_rate } = data;
+  const { name, email, password, commission_rate, role = 'agent', parent_agent_id = null } = data;
   const exists = await db('users').where({ email }).first();
   if (exists) throw new Error('Bu email artıq istifadə olunur');
+  if (role === 'subagent' && !parent_agent_id) {
+    throw new Error('Subagent üçün valideyn agent seçilməlidir');
+  }
+  if (role === 'subagent') {
+    const parent = await db('users').where({ id: parent_agent_id, role: 'agent' }).first();
+    if (!parent) throw new Error('Seçilmiş valideyn agent tapılmadı');
+  }
   const hashed = await bcrypt.hash(password, 10);
-  const [id] = await db('users').insert({ name, email, password: hashed, role: 'agent', commission_rate: commission_rate || 10 });
-  return { id, name, email, role: 'agent', commission_rate: commission_rate || 10 };
+  const parentId = role === 'subagent' ? parent_agent_id : null;
+  const [id] = await db('users').insert({
+    name,
+    email,
+    password: hashed,
+    role,
+    parent_agent_id: parentId,
+    commission_rate: commission_rate || 10,
+  });
+  return { id, name, email, role, parent_agent_id: parentId, commission_rate: commission_rate || 10 };
 };
 
 const updateAgent = async (id, data) => {
@@ -59,4 +93,4 @@ const updateAgent = async (id, data) => {
   return getMe(id);
 };
 
-module.exports = { login, getMe, getAgents, createAgent, updateAgent };
+module.exports = { login, getMe, getAgents, getStaff, createAgent, updateAgent };

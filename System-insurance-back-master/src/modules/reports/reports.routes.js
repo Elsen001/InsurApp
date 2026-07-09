@@ -4,6 +4,11 @@ const ctrl = require('./reports.controller');
 const { authenticate } = require('../../middleware/auth');
 const { requireAdmin } = require('../../middleware/role');
 
+// Öz hesabatım (agent/subagent/admin) — admin guard-dan ƏVVƏL
+router.get('/my', authenticate, ctrl.getMyReport);
+router.get('/my/export', authenticate, ctrl.exportMyData);
+
+// Aşağıdakılar yalnız admin
 router.use(authenticate, requireAdmin);
 
 router.get('/summary', ctrl.getSummary);

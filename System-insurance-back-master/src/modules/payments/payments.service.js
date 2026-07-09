@@ -24,7 +24,7 @@ const getPayments = async (user, filters = {}) => {
     )
     .orderBy('payments.due_date', 'asc');
 
-  if (user.role === 'agent') {
+  if (user.role === 'agent' || user.role === 'subagent') {
     query = query.where('policies.agent_id', user.id);
   }
 

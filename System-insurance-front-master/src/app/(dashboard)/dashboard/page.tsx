@@ -35,23 +35,35 @@ export default function DashboardPage() {
     if (role) load();
   }, [role]);
 
-  if (role === "agent") {
+  if (role === "agent" || role === "subagent") {
     return (
       <div>
         <h1 className="text-2xl font-bold text-slate-900 mb-6">
           Xoş gəldiniz, {session?.user?.name}
         </h1>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader><CardTitle>Sığortalar</CardTitle></CardHeader>
             <CardContent>
-              <p className="text-muted-foreground text-sm">Sol menyudan "Sığortalar" bölməsinə keçin</p>
+              <p className="text-muted-foreground text-sm">Sol menyudan "Sığorta al" bölməsinə keçin</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle>Ödənişlər</CardTitle></CardHeader>
             <CardContent>
               <p className="text-muted-foreground text-sm">Öz ödəniş statuslarınızı izləyin</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Hesabatım</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">Öz satış hesabatınızı görün və ixrac edin</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Bonuslarım</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">Sizə təyin olunmuş bonuslara baxın</p>
             </CardContent>
           </Card>
         </div>

@@ -8,8 +8,9 @@ router.post('/login', ctrl.login);
 router.post('/logout', authenticate, ctrl.logout);
 router.get('/me', authenticate, ctrl.getMe);
 
-// Agent idarəetməsi (yalnız admin)
+// Agent / subagent idarəetməsi (yalnız admin)
 router.get('/agents', authenticate, requireAdmin, ctrl.getAgents);
+router.get('/staff', authenticate, requireAdmin, ctrl.getStaff);
 router.post('/agents', authenticate, requireAdmin, ctrl.createAgent);
 router.put('/agents/:id', authenticate, requireAdmin, ctrl.updateAgent);
 
