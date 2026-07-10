@@ -2,7 +2,8 @@ const reportsService = require('./export.service');
 
 const getSummary = async (req, res) => {
   try {
-    const summary = await reportsService.getSummary();
+    const { from, to } = req.query;
+    const summary = await reportsService.getSummary({ from, to });
     res.json({ success: true, summary });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -21,7 +22,8 @@ const getAgentReport = async (req, res) => {
 // Agent/subagent: öz hesabatı
 const getMyReport = async (req, res) => {
   try {
-    const report = await reportsService.getAgentReport(req.user.id);
+    const { from, to } = req.query;
+    const report = await reportsService.getAgentReport(req.user.id, { from, to });
     res.json({ success: true, report });
   } catch (err) {
     res.status(404).json({ success: false, message: err.message });

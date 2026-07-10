@@ -3,18 +3,24 @@ import { useEffect, useState } from "react";
 import { reportsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { formatDate, formatCurrency, POLICY_TYPE_LABELS } from "@/lib/utils";
 import { BarChart3, FileText, FileSpreadsheet } from "lucide-react";
 
 export default function MyReportPage() {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
-  useEffect(() => {
-    reportsApi.getMy()
+  const load = (f = from, t = to) => {
+    setLoading(true);
+    reportsApi.getMy({ from: f || undefined, to: t || undefined })
       .then(res => setReport(res.data.report))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const download = async (kind: "pdf" | "excel") => {
     const res = kind === "pdf" ? await reportsApi.exportMyPDF() : await reportsApi.exportMyExcel();
@@ -50,6 +56,9 @@ export default function MyReportPage() {
           <Button variant="outline" size="sm" onClick={() => download("excel")}><FileSpreadsheet size={14} className="mr-1" />Excel</Button>
         </div>
       </div>
+
+      {/* Tarix filtri */}
+      <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} onApply={(f, t) => load(f, t)} />
 
       {/* Xülasə kartları */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

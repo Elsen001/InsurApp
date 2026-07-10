@@ -9,7 +9,7 @@ const list = async () => {
       'bonuses.user_id',
       'bonuses.product',
       'bonuses.product_label',
-      'bonuses.amount',
+      'bonuses.percent',
       'bonuses.note',
       'bonuses.created_at',
       'users.name as user_name',
@@ -22,20 +22,20 @@ const list = async () => {
 const listByUser = async (userId) => {
   return db('bonuses')
     .where({ user_id: userId })
-    .select('id', 'product', 'product_label', 'amount', 'note', 'created_at', 'updated_at')
+    .select('id', 'product', 'product_label', 'percent', 'note', 'created_at', 'updated_at')
     .orderBy('product_label', 'asc');
 };
 
 // Bonus yarat / yenilə (user_id + product unikaldır → upsert)
 const create = async (data, adminId) => {
-  const { user_id, product, product_label, amount, note } = data;
+  const { user_id, product, product_label, percent, note } = data;
 
   const user = await db('users').where({ id: user_id }).whereIn('role', ['agent', 'subagent']).first();
   if (!user) throw new Error('Bonus yalnız agent və ya subagentə təyin oluna bilər');
 
   const existing = await db('bonuses').where({ user_id, product }).first();
   if (existing) {
-    await db('bonuses').where({ id: existing.id }).update({ product_label, amount, note: note || null });
+    await db('bonuses').where({ id: existing.id }).update({ product_label, percent, note: note || null });
     return db('bonuses').where({ id: existing.id }).first();
   }
 
@@ -43,7 +43,7 @@ const create = async (data, adminId) => {
     user_id,
     product,
     product_label,
-    amount,
+    percent,
     note: note || null,
     created_by: adminId || null,
   });
@@ -51,9 +51,9 @@ const create = async (data, adminId) => {
 };
 
 const update = async (id, data) => {
-  const { amount, note, product_label } = data;
+  const { percent, note, product_label } = data;
   const patch = {};
-  if (amount !== undefined) patch.amount = amount;
+  if (percent !== undefined) patch.percent = percent;
   if (note !== undefined) patch.note = note || null;
   if (product_label !== undefined) patch.product_label = product_label;
   await db('bonuses').where({ id }).update(patch);

@@ -14,8 +14,6 @@ export default function MyBonusesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const total = bonuses.reduce((s, b) => s + Number(b.amount), 0);
-
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-3">
@@ -28,17 +26,14 @@ export default function MyBonusesPage() {
         </div>
       </div>
 
-      {!loading && bonuses.length > 0 && (
-        <Card className="bg-emerald-50 border-emerald-200">
-          <CardContent className="py-4 flex items-center justify-between">
-            <span className="text-sm font-medium text-emerald-800">Ümumi bonus (məhsul üzrə cəmi)</span>
-            <span className="text-2xl font-bold text-emerald-700">{total.toFixed(2)} AZN</span>
-          </CardContent>
-        </Card>
-      )}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="py-3 text-sm text-blue-800">
+          Bonus faizdir: hər məhsulu satdıqda, sığortanın <b>premium məbləğinin</b> göstərilən faizi sizin bonusunuz olur.
+        </CardContent>
+      </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-lg">Məhsula görə bonuslarım</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-lg">Məhsula görə bonus faizlərim</CardTitle></CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-8"><div className="animate-spin h-7 w-7 rounded-full border-4 border-primary border-t-transparent" /></div>
@@ -50,9 +45,9 @@ export default function MyBonusesPage() {
                 <div key={b.id} className="flex items-center justify-between border border-slate-200 rounded-lg px-4 py-3">
                   <div>
                     <p className="font-medium text-slate-800">{b.product_label}</p>
-                    {b.note && <p className="text-xs text-muted-foreground">{b.note}</p>}
+                    <p className="text-xs text-muted-foreground">{b.note || "Premiumun faizi"}</p>
                   </div>
-                  <span className="text-lg font-bold text-emerald-700">{Number(b.amount).toFixed(2)} AZN</span>
+                  <span className="text-2xl font-bold text-emerald-700">{Number(b.percent).toFixed(2)}%</span>
                 </div>
               ))}
             </div>

@@ -2,23 +2,30 @@ const db = require('../../config/db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
-const getSummary = async () => {
+// Tarix aralığı filtri (verilmiş sütun üzrə)
+const applyDates = (q, filters = {}, col = 'created_at') => {
+  if (filters.from) q = q.where(col, '>=', filters.from);
+  if (filters.to) q = q.where(col, '<=', `${filters.to} 23:59:59`);
+  return q;
+};
+
+const getSummary = async (filters = {}) => {
   // BUG DÜZƏLİŞİ: total_policies bütün statuslar, total_premium yalnız active — uyğunsuzluq
   // Həll: hər ikisi üçün eyni qayda — cancelled xaric
-  const [totalPolicies] = await db('policies')
-    .whereIn('status', ['active', 'expired'])
+  const [totalPolicies] = await applyDates(db('policies')
+    .whereIn('status', ['active', 'expired']), filters)
     .count('* as count');
 
-  const [totalPremium] = await db('policies')
-    .whereIn('status', ['active', 'expired'])
+  const [totalPremium] = await applyDates(db('policies')
+    .whereIn('status', ['active', 'expired']), filters)
     .sum('premium_amount as total');
 
-  const [totalCommissions] = await db('commissions').sum('amount as total');
-  const [paidCommissions] = await db('commissions').where('status', 'paid').sum('amount as total');
+  const [totalCommissions] = await applyDates(db('commissions'), filters).sum('amount as total');
+  const [paidCommissions] = await applyDates(db('commissions').where('status', 'paid'), filters).sum('amount as total');
 
   // BUG DÜZƏLİŞİ: ləğv edilmiş sığortalar növ bölgüsünə daxil edilməməlidir
-  const policiesByType = await db('policies')
-    .whereIn('status', ['active', 'expired'])
+  const policiesByType = await applyDates(db('policies')
+    .whereIn('status', ['active', 'expired']), filters)
     .select('type')
     .count('* as count')
     .sum('premium_amount as total')
@@ -29,14 +36,14 @@ const getSummary = async () => {
   const agents = await db('users').where({ role: 'agent' }).select('id', 'name', 'commission_rate');
 
   const agentStats = await Promise.all(agents.map(async (agent) => {
-    const [polStats] = await db('policies')
+    const [polStats] = await applyDates(db('policies')
       .where({ agent_id: agent.id })
-      .whereIn('status', ['active', 'expired'])
+      .whereIn('status', ['active', 'expired']), filters)
       .count('id as policy_count')
       .sum('premium_amount as total_premium');
 
-    const [comStats] = await db('commissions')
-      .where({ agent_id: agent.id })
+    const [comStats] = await applyDates(db('commissions')
+      .where({ agent_id: agent.id }), filters)
       .sum('amount as total_commission');
 
     return {
@@ -59,26 +66,26 @@ const getSummary = async () => {
   };
 };
 
-const getAgentReport = async (agentId) => {
+const getAgentReport = async (agentId, filters = {}) => {
   const agent = await db('users').where({ id: agentId }).first();
   if (!agent) throw new Error('Agent tapılmadı');
 
-  const policies = await db('policies')
-    .where({ agent_id: agentId })
+  const policies = await applyDates(db('policies')
+    .where({ agent_id: agentId }), filters)
     .orderBy('created_at', 'desc');
 
   // BUG DÜZƏLİŞİ: agent_id ilə filtr yetərlidir, policy_id ilə əlaqə saxlamaq lazım deyil
-  const commissions = await db('commissions')
-    .where({ agent_id: agentId })
+  const commissions = await applyDates(db('commissions')
+    .where({ agent_id: agentId }), filters)
     .select('status')
     .sum('amount as total')
     .count('* as count')
     .groupBy('status');
 
   // Növlərə görə breakdown
-  const byType = await db('policies')
+  const byType = await applyDates(db('policies')
     .where({ agent_id: agentId })
-    .whereIn('status', ['active', 'expired'])
+    .whereIn('status', ['active', 'expired']), filters)
     .select('type')
     .count('* as count')
     .sum('premium_amount as total')

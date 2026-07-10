@@ -62,7 +62,7 @@ export const paymentsApi = {
 };
 
 export const reportsApi = {
-  getSummary: () => api.get("/api/reports/summary"),
+  getSummary: (filters?: any) => api.get("/api/reports/summary", { params: filters }),
   getAgentReport: (id: number) => api.get(`/api/reports/agent/${id}`),
   exportExcel: (filters?: any) =>
     api.get("/api/reports/export", { params: { format: "excel", ...filters }, responseType: "blob" }),
@@ -72,7 +72,7 @@ export const reportsApi = {
     api.get(`/api/reports/agent/${id}/export`, { params: { format: "pdf" }, responseType: "blob" }),
   exportAgentExcel: (id: number) =>
     api.get(`/api/reports/agent/${id}/export`, { params: { format: "excel" }, responseType: "blob" }),
-  getMy: () => api.get("/api/reports/my"),
+  getMy: (filters?: any) => api.get("/api/reports/my", { params: filters }),
   exportMyPDF: () =>
     api.get(`/api/reports/my/export`, { params: { format: "pdf" }, responseType: "blob" }),
   exportMyExcel: () =>

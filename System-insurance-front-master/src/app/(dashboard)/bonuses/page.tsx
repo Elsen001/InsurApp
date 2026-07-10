@@ -14,7 +14,7 @@ export default function BonusesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ user_id: "", product: "", amount: "", note: "" });
+  const [form, setForm] = useState({ user_id: "", product: "", percent: "", note: "" });
 
   const load = async () => {
     setLoading(true);
@@ -36,10 +36,10 @@ export default function BonusesPage() {
         user_id: Number(form.user_id),
         product: form.product,
         product_label: PRODUCT_LABELS[form.product] || form.product,
-        amount: Number(form.amount) || 0,
+        percent: Number(form.percent) || 0,
         note: form.note || undefined,
       });
-      setForm({ user_id: "", product: "", amount: "", note: "" });
+      setForm({ user_id: "", product: "", percent: "", note: "" });
       load();
     } catch (err: any) {
       setError(err.response?.data?.message || "Xəta baş verdi");
@@ -62,7 +62,7 @@ export default function BonusesPage() {
         <div className="p-2 bg-primary/10 rounded-lg text-primary"><Gift size={22} /></div>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Bonuslar</h1>
-          <p className="text-sm text-muted-foreground">Sığorta məhsuluna görə agent və subagentlərə bonus təyin edin</p>
+          <p className="text-sm text-muted-foreground">Sığorta məhsuluna görə agent və subagentlərə bonus faizi təyin edin (premiumun %-i)</p>
         </div>
       </div>
 
@@ -113,9 +113,10 @@ export default function BonusesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Bonus məbləği (AZN) *</Label>
-              <Input type="number" min="0" step="0.01" value={form.amount}
-                onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required placeholder="0.00" />
+              <Label>Bonus faizi (%) *</Label>
+              <Input type="number" min="0" max="100" step="0.01" value={form.percent}
+                onChange={e => setForm(f => ({ ...f, percent: e.target.value }))} required placeholder="məs. 5" />
+              <p className="text-xs text-muted-foreground">Satılan sığortanın premiumundan tutulacaq faiz.</p>
             </div>
 
             <div className="space-y-2">
@@ -129,7 +130,7 @@ export default function BonusesPage() {
             </div>
           </form>
           <p className="text-xs text-muted-foreground mt-3">
-            Eyni istifadəçi + məhsul üçün təkrar təyin etsəniz, mövcud bonus yenilənir.
+            Eyni istifadəçi + məhsul üçün təkrar təyin etsəniz, mövcud bonus yenilənir. Misal: Yuvam üçün 5% → agent Yuvam satdıqda premiumun 5%-i onun bonusudur.
           </p>
         </CardContent>
       </Card>
@@ -150,7 +151,7 @@ export default function BonusesPage() {
                     <th className="px-3 py-2 font-semibold">İşçi</th>
                     <th className="px-3 py-2 font-semibold">Növ</th>
                     <th className="px-3 py-2 font-semibold">Məhsul</th>
-                    <th className="px-3 py-2 font-semibold text-right">Bonus</th>
+                    <th className="px-3 py-2 font-semibold text-right">Bonus faizi</th>
                     <th className="px-3 py-2 font-semibold">Qeyd</th>
                     <th className="px-3 py-2"></th>
                   </tr>
@@ -165,7 +166,7 @@ export default function BonusesPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2">{b.product_label}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-emerald-700">{Number(b.amount).toFixed(2)} AZN</td>
+                      <td className="px-3 py-2 text-right font-semibold text-emerald-700">{Number(b.percent).toFixed(2)}%</td>
                       <td className="px-3 py-2 text-muted-foreground">{b.note || "—"}</td>
                       <td className="px-3 py-2 text-right">
                         <button onClick={() => handleDelete(b.id)} className="text-red-500 hover:text-red-700 p-1">

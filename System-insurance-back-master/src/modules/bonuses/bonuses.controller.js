@@ -5,7 +5,7 @@ const bonusSchema = z.object({
   user_id: z.number().int().positive(),
   product: z.string().min(1),
   product_label: z.string().min(1),
-  amount: z.number().min(0),
+  percent: z.number().min(0).max(100),
   note: z.string().optional(),
 });
 

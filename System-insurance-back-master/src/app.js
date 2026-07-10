@@ -13,8 +13,15 @@ const bonusesRoutes = require('./modules/bonuses/bonuses.routes');
 const app = express();
 
 // Middleware
+// Dev / Codespaces: localhost və *.app.github.dev origin-lərinə icazə ver
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // curl/server-to-server
+    if (/localhost:\d+$/.test(origin) || /\.app\.github\.dev$/.test(origin) || origin === process.env.FRONTEND_URL) {
+      return cb(null, true);
+    }
+    return cb(null, true); // development: bütün origin-lərə icazə
+  },
   credentials: true,
 }));
 app.use(express.json());

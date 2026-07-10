@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { reportsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { formatCurrency, downloadBlob } from "@/lib/utils";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 const typeLabels: Record<string, string> = { auto: "Avtomobil", casco: "Kasko", property: "Əmlak", travel: "Səfər" };
@@ -13,15 +14,23 @@ export default function ReportsPage() {
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
-  useEffect(() => {
-    reportsApi.getSummary().then(res => setSummary(res.data.summary)).finally(() => setLoading(false));
-  }, []);
+  const load = (f = from, t = to) => {
+    setLoading(true);
+    reportsApi.getSummary({ from: f || undefined, to: t || undefined })
+      .then(res => setSummary(res.data.summary))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleExport = async (format: "excel" | "pdf") => {
     setExporting(format);
     try {
-      const res = format === "excel" ? await reportsApi.exportExcel() : await reportsApi.exportPDF();
+      const filters = { from: from || undefined, to: to || undefined };
+      const res = format === "excel" ? await reportsApi.exportExcel(filters) : await reportsApi.exportPDF(filters);
       const ext = format === "excel" ? "xlsx" : "pdf";
       downloadBlob(res.data, `sigorta-hesabat-${Date.now()}.${ext}`);
     } catch (e) {
@@ -50,6 +59,9 @@ export default function ReportsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Tarix filtri */}
+      <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} onApply={(f, t) => load(f, t)} />
 
       {loading ? (
         <div className="flex justify-center py-24"><div className="animate-spin h-8 w-8 rounded-full border-4 border-primary border-t-transparent" /></div>
