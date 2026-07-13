@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PRODUCT_GROUPS, PRODUCT_LABELS } from "@/lib/products";
-import { Plus, X, Trash2, Gift } from "lucide-react";
+import { AtesgahAvtoCalc } from "@/components/AtesgahAvtoCalc";
+import { Plus, Trash2, Gift, Percent, Car } from "lucide-react";
 
 export default function BonusesPage() {
   const [staff, setStaff] = useState<any[]>([]);
@@ -14,7 +15,9 @@ export default function BonusesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ user_id: "", product: "", percent: "", note: "" });
+  const [form, setForm] = useState({ product: "", percent: "", note: "" });
+  const [mode, setMode] = useState<"simple" | "atesgah">("simple");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -29,23 +32,36 @@ export default function BonusesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!form.user_id || !form.product) { setError("İstifadəçi və məhsul seçin"); return; }
+    if (!form.product) { setError("Məhsul seçin"); return; }
+    if (selectedIds.length === 0) { setError("Ən azı bir agent və ya subagent seçin"); return; }
+
     setSaving(true);
     try {
-      await bonusesApi.create({
-        user_id: Number(form.user_id),
+      await Promise.all(selectedIds.map(uid => bonusesApi.create({
+        user_id: uid,
         product: form.product,
         product_label: PRODUCT_LABELS[form.product] || form.product,
         percent: Number(form.percent) || 0,
         note: form.note || undefined,
-      });
-      setForm({ user_id: "", product: "", percent: "", note: "" });
+      })));
+      setForm({ product: "", percent: "", note: "" });
+      setSelectedIds([]);
       load();
     } catch (err: any) {
       setError(err.response?.data?.message || "Xəta baş verdi");
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggleId = (id: number) =>
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const allChecked = (list: any[]) => list.length > 0 && list.every(u => selectedIds.includes(u.id));
+
+  const toggleAll = (list: any[]) => {
+    const ids = list.map(u => u.id);
+    setSelectedIds(prev => allChecked(list) ? prev.filter(x => !ids.includes(x)) : Array.from(new Set([...prev, ...ids])));
   };
 
   const handleDelete = async (id: number) => {
@@ -66,32 +82,86 @@ export default function BonusesPage() {
         </div>
       </div>
 
+      {/* Bonus növü seçimi */}
+      <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1">
+        <button
+          type="button"
+          onClick={() => setMode("simple")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${mode === "simple" ? "bg-white text-primary shadow-sm" : "text-slate-600"}`}
+        >
+          <Percent size={15} /> Sadə faiz
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("atesgah")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${mode === "atesgah" ? "bg-white text-primary shadow-sm" : "text-slate-600"}`}
+        >
+          <Car size={15} /> Atəşgah avto cədvəli
+        </button>
+      </div>
+
+      {/* Atəşgah avto tarif cədvəli — seçim */}
+      {mode === "atesgah" && (
+        <Card className="border-primary/30">
+          <CardContent className="pt-5">
+            <AtesgahAvtoCalc
+              onPick={(pct) => {
+                setForm(f => ({ ...f, percent: String(pct), product: f.product || "avtonəqliyyat" }));
+                setMode("simple");
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Yeni bonus forması */}
       <Card className="border-primary/30">
         <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Plus size={18} />Bonus təyin et</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* İşçi seçimi */}
-            <div className="space-y-2">
-              <Label>Agent / Subagent *</Label>
-              <select
-                value={form.user_id}
-                onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))}
-                required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">— Seçin —</option>
-                {agents.length > 0 && (
-                  <optgroup label="Agentlər">
-                    {agents.map(a => <option key={a.id} value={a.id}>{a.name} — {a.email}</option>)}
-                  </optgroup>
-                )}
-                {subagents.length > 0 && (
-                  <optgroup label="Subagentlər">
-                    {subagents.map(s => <option key={s.id} value={s.id}>{s.name} — {s.email} (subagent)</option>)}
-                  </optgroup>
-                )}
-              </select>
+            {/* Kimə təyin olunsun — checkbox seçimi */}
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <Label>Kimə təyin olunsun? * <span className="text-xs text-muted-foreground font-normal">(bir və ya bir neçəsini seçin)</span></Label>
+                <span className="text-xs font-medium text-primary">{selectedIds.length} seçilib</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Agentlər */}
+                <div className="border border-slate-200 rounded-lg p-3">
+                  <label className="flex items-center gap-2 font-semibold text-sm pb-2 mb-2 border-b cursor-pointer">
+                    <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={allChecked(agents)} onChange={() => toggleAll(agents)} />
+                    Bütün agentlər ({agents.length})
+                  </label>
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                    {agents.map(a => (
+                      <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
+                        <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={selectedIds.includes(a.id)} onChange={() => toggleId(a.id)} />
+                        <span className="font-medium">{a.name}</span>
+                        <span className="text-xs text-muted-foreground truncate">{a.email}</span>
+                      </label>
+                    ))}
+                    {agents.length === 0 && <p className="text-xs text-muted-foreground">Agent yoxdur</p>}
+                  </div>
+                </div>
+
+                {/* Subagentlər */}
+                <div className="border border-slate-200 rounded-lg p-3">
+                  <label className="flex items-center gap-2 font-semibold text-sm pb-2 mb-2 border-b cursor-pointer">
+                    <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={allChecked(subagents)} onChange={() => toggleAll(subagents)} />
+                    Bütün subagentlər ({subagents.length})
+                  </label>
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                    {subagents.map(s => (
+                      <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
+                        <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={selectedIds.includes(s.id)} onChange={() => toggleId(s.id)} />
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-xs text-muted-foreground truncate">{s.email}</span>
+                      </label>
+                    ))}
+                    {subagents.length === 0 && <p className="text-xs text-muted-foreground">Subagent yoxdur</p>}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Məhsul seçimi */}
