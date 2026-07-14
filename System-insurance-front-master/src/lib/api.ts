@@ -79,6 +79,14 @@ export const reportsApi = {
     api.get(`/api/reports/my/export`, { params: { format: "excel" }, responseType: "blob" }),
 };
 
+export const boardApi = {
+  getAnnouncements: () => api.get("/api/board/announcements"),
+  createAnnouncement: (data: { title?: string; body: string }) => api.post("/api/board/announcements", data),
+  deleteAnnouncement: (id: number) => api.delete(`/api/board/announcements/${id}`),
+  getMessages: () => api.get("/api/board/messages"),
+  postMessage: (body: string) => api.post("/api/board/messages", { body }),
+};
+
 export const pricingRulesApi = {
   getAll: () => api.get("/api/pricing-rules"),
   create: (data: any) => api.post("/api/pricing-rules", data),

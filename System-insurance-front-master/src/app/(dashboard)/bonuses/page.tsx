@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { authApi, bonusesApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,27 +8,37 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PRODUCT_GROUPS, PRODUCT_LABELS } from "@/lib/products";
 import { AtesgahAvtoCalc } from "@/components/AtesgahAvtoCalc";
-import { Plus, Trash2, Gift, Percent, Car } from "lucide-react";
+import { PashaBonusCalc } from "@/components/PashaBonusCalc";
+import { Plus, Trash2, Gift, Percent, Car, Building2 } from "lucide-react";
 
 export default function BonusesPage() {
+  const { data: session, status } = useSession();
+  const role = (session?.user as any)?.role;
+  const isAdmin = role === "admin";
+
   const [staff, setStaff] = useState<any[]>([]);
   const [bonuses, setBonuses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ product: "", percent: "", note: "" });
-  const [mode, setMode] = useState<"simple" | "atesgah">("simple");
+  const [mode, setMode] = useState<"simple" | "atesgah" | "pasha">("simple");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const load = async () => {
     setLoading(true);
-    const [staffRes, bonusesRes] = await Promise.all([authApi.getStaff(), bonusesApi.getAll()]);
-    setStaff(staffRes.data.staff);
-    setBonuses(bonusesRes.data.bonuses);
-    setLoading(false);
+    try {
+      const [staffRes, bonusesRes] = await Promise.all([authApi.getStaff(), bonusesApi.getAll()]);
+      setStaff(staffRes.data.staff);
+      setBonuses(bonusesRes.data.bonuses);
+    } catch (err) {
+      // icazə yoxdursa (agent/subagent) sakit keç
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (isAdmin) load(); else if (role) setLoading(false); }, [isAdmin, role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +83,20 @@ export default function BonusesPage() {
   const agents = staff.filter(s => s.role === "agent");
   const subagents = staff.filter(s => s.role === "subagent");
 
+  // Yalnız admin
+  if (status === "loading" || !role) {
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin h-8 w-8 rounded-full border-4 border-primary border-t-transparent" /></div>;
+  }
+  if (!isAdmin) {
+    return (
+      <div className="max-w-lg mx-auto mt-16 text-center">
+        <div className="inline-flex p-3 bg-red-50 rounded-full text-red-500 mb-3"><Gift size={28} /></div>
+        <h1 className="text-xl font-bold text-slate-900">Bu səhifə yalnız admin üçündür</h1>
+        <p className="text-sm text-muted-foreground mt-1">Öz bonuslarınızı görmək üçün "Bonuslarım" bölməsinə keçin.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-center gap-3">
@@ -98,6 +123,13 @@ export default function BonusesPage() {
         >
           <Car size={15} /> Atəşgah avto cədvəli
         </button>
+        <button
+          type="button"
+          onClick={() => setMode("pasha")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${mode === "pasha" ? "bg-white text-primary shadow-sm" : "text-slate-600"}`}
+        >
+          <Building2 size={15} /> Paşa Sığorta cədvəli
+        </button>
       </div>
 
       {/* Atəşgah avto tarif cədvəli — seçim */}
@@ -105,6 +137,20 @@ export default function BonusesPage() {
         <Card className="border-primary/30">
           <CardContent className="pt-5">
             <AtesgahAvtoCalc
+              onPick={(pct) => {
+                setForm(f => ({ ...f, percent: String(pct), product: f.product || "avtonəqliyyat" }));
+                setMode("simple");
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Paşa Sığorta cədvəli — seçim */}
+      {mode === "pasha" && (
+        <Card className="border-primary/30">
+          <CardContent className="pt-5">
+            <PashaBonusCalc
               onPick={(pct) => {
                 setForm(f => ({ ...f, percent: String(pct), product: f.product || "avtonəqliyyat" }));
                 setMode("simple");

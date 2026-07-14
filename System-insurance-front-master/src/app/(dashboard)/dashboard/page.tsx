@@ -12,7 +12,7 @@ const COLORS = ["#1e3a5f", "#3b82f6", "#10b981", "#f59e0b"];
 const typeLabels: Record<string, string> = { auto: "Avtomobil", casco: "Kasko", property: "Əmlak", travel: "Səfər" };
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const role = (session?.user as any)?.role;
   const [summary, setSummary] = useState<any>(null);
   const [paymentStats, setPaymentStats] = useState<any[]>([]);
@@ -35,7 +35,13 @@ export default function DashboardPage() {
     if (role) load();
   }, [role]);
 
-  if (role === "agent" || role === "subagent") {
+  // Rol yüklənənə qədər gözlə — səhvən admin paneli göstərilməsin
+  if (status === "loading" || !role) {
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin h-8 w-8 rounded-full border-4 border-primary border-t-transparent" /></div>;
+  }
+
+  // Admin olmayan hər kəs (agent/subagent) → sadə panel
+  if (role !== "admin") {
     return (
       <div>
         <h1 className="text-2xl font-bold text-slate-900 mb-6">

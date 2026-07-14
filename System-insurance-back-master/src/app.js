@@ -9,6 +9,7 @@ const paymentsRoutes = require('./modules/payments/payments.routes');
 const reportsRoutes = require('./modules/reports/reports.routes');
 const pricingRulesRoutes = require('./modules/pricing-rules/pricing-rules.routes');
 const bonusesRoutes = require('./modules/bonuses/bonuses.routes');
+const boardRoutes = require('./modules/board/board.routes');
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/pricing-rules', pricingRulesRoutes);
 app.use('/api/bonuses', bonusesRoutes);
+app.use('/api/board', boardRoutes);
 
 // Xəta handler
 app.use((err, req, res, next) => {
