@@ -32,50 +32,51 @@ export const VEHICLE_CATEGORIES: { value: VehicleCategory; label: string }[] = [
 
 // ── MİNİK — Fiziki şəxslər: kateqoriya × band → { p: sığorta haqqı, k: komissiya % } ──
 type Row = { p: number; k: number };
+// Qeyd: komissiya faizləri (k) hələlik 0 — admin özü təyin edəcək. Sığorta haqları (p) saxlanır.
 const FIZIKI_MINIK: Record<VehicleCategory, Record<string, Row>> = {
   diger: {
-    "0-1500": { p: 80, k: 5 },
-    "1501-2000": { p: 84, k: 5 },
-    "2001-2500": { p: 99, k: 6 },
-    "2501-3000": { p: 100, k: 6 },
-    "3001-3500": { p: 90, k: 7 },
-    "3501-4000": { p: 90, k: 7 },
-    "4001-4500": { p: 95, k: 8 },
-    "4501-5000": { p: 95, k: 8 },
-    "5000+": { p: 95, k: 8 },
-    elektro: { p: 115, k: 5 },
+    "0-1500": { p: 80, k: 0 },
+    "1501-2000": { p: 84, k: 0 },
+    "2001-2500": { p: 99, k: 0 },
+    "2501-3000": { p: 100, k: 0 },
+    "3001-3500": { p: 90, k: 0 },
+    "3501-4000": { p: 90, k: 0 },
+    "4001-4500": { p: 95, k: 0 },
+    "4501-5000": { p: 95, k: 0 },
+    "5000+": { p: 95, k: 0 },
+    elektro: { p: 115, k: 0 },
   },
   qadagan: {
-    "0-1500": { p: 90, k: 3 },
-    "1501-2000": { p: 95, k: 3 },
-    "2001-2500": { p: 100, k: 4 },
-    "2501-3000": { p: 100, k: 4 },
-    "3001-3500": { p: 100, k: 5 },
-    "3501-4000": { p: 100, k: 5 },
-    "4001-4500": { p: 100, k: 6 },
-    "4501-5000": { p: 100, k: 6 },
-    "5000+": { p: 100, k: 6 },
-    elektro: { p: 120, k: 3 },
+    "0-1500": { p: 90, k: 0 },
+    "1501-2000": { p: 95, k: 0 },
+    "2001-2500": { p: 100, k: 0 },
+    "2501-3000": { p: 100, k: 0 },
+    "3001-3500": { p: 100, k: 0 },
+    "3501-4000": { p: 100, k: 0 },
+    "4001-4500": { p: 100, k: 0 },
+    "4501-5000": { p: 100, k: 0 },
+    "5000+": { p: 100, k: 0 },
+    elektro: { p: 120, k: 0 },
   },
   vaz_lada: {
     // PDF-də yalnız 0–2000 sm³ verilib
-    "0-1500": { p: 67, k: 5 },
-    "1501-2000": { p: 67, k: 5 },
+    "0-1500": { p: 67, k: 0 },
+    "1501-2000": { p: 67, k: 0 },
   },
 };
 
-// MİNİK — Hüquqi şəxslər: band → maksimum komissiya faizi ("-" = null)
+// MİNİK — Hüquqi şəxslər: band → maksimum komissiya faizi (hələlik 0)
 const HUQUQI_MINIK_MAX: Record<string, number | null> = {
-  "0-1500": null,
-  "1501-2000": null,
-  "2001-2500": null,
-  "2501-3000": 8,
-  "3001-3500": 8,
-  "3501-4000": 8,
-  "4001-4500": 8,
-  "4501-5000": 8,
-  "5000+": 8,
-  elektro: null,
+  "0-1500": 0,
+  "1501-2000": 0,
+  "2001-2500": 0,
+  "2501-3000": 0,
+  "3001-3500": 0,
+  "3501-4000": 0,
+  "4001-4500": 0,
+  "4501-5000": 0,
+  "5000+": 0,
+  elektro: 0,
 };
 
 // ── DİGƏR nəqliyyat növləri (həm Fiziki, həm Hüquqi) → komissiya % ──
@@ -89,9 +90,57 @@ export const DIGER_TYPES: { value: string; label: string; k: number }[] = [
   { value: "diger", label: "Digər", k: 5 }, // default — sonra dəyişiləcək
 ];
 
+// Qadağan edilmiş NV — marka + model siyahısı
+export const QADAGAN_VEHICLES: { brand: string; model: string }[] = [
+  { brand: "Honda", model: "Civic" },
+  { brand: "Honda", model: "CITY" },
+  { brand: "Honda", model: "İnsight" },
+  { brand: "KİA", model: "RİO" },
+  { brand: "KİA", model: "CEED" },
+  { brand: "NISSAN", model: "JUKE" },
+  { brand: "NISSAN", model: "SENTRA" },
+  { brand: "NISSAN", model: "Note" },
+  { brand: "NISSAN", model: "Sunny" },
+  { brand: "NISSAN", model: "Micra" },
+  { brand: "VOLKSWAGEN", model: "JETTA" },
+  { brand: "MERCEDES BENZ", model: "VİTO 230" },
+  { brand: "MERCEDES BENZ", model: "Sprinter" },
+  { brand: "SKODA", model: "Rapid" },
+  { brand: "SKODA", model: "Fabia" },
+  { brand: "SKODA", model: "KODIAQ" },
+  { brand: "SKODA", model: "Superb" },
+  { brand: "Toyota", model: "Prius" },
+  { brand: "Toyota", model: "Yaris" },
+  { brand: "Chevrolet", model: "bütün modellər" },
+  { brand: "Opel", model: "bütün modellər" },
+  { brand: "RENAULT", model: "bütün modellər" },
+  { brand: "Khazar", model: "bütün modellər" },
+  { brand: "AzSamand", model: "bütün modellər" },
+  { brand: "İSUZU", model: "bütün modellər" },
+  { brand: "Daewoo", model: "bütün modellər" },
+  { brand: "RAVON", model: "bütün modellər" },
+  { brand: "SAIPA", model: "bütün modellər" },
+  { brand: "NAZLİFAN", model: "bütün modellər" },
+  { brand: "TOFAŞ", model: "bütün modellər" },
+  { brand: "BYD", model: "bütün modellər" },
+  { brand: "Dong Feng", model: "bütün modellər" },
+  { brand: "Geely", model: "bütün modellər" },
+  { brand: "KAYİ", model: "bütün modellər" },
+];
+
 export function bandForCc(cc: number): string | null {
   const b = ENGINE_BANDS.find((x) => cc >= x.min && cc <= x.max);
   return b ? b.key : null;
+}
+
+// Minik — kateqoriya + band üzrə sığorta haqqı (yoxdursa null)
+export function minikPremium(category: VehicleCategory, bandKey: string): number | null {
+  return FIZIKI_MINIK[category]?.[bandKey]?.p ?? null;
+}
+
+// Elektromobil premium-u
+export function minikElektroPremium(category: VehicleCategory): number | null {
+  return FIZIKI_MINIK[category]?.["elektro"]?.p ?? null;
 }
 
 export type AvtoCalcResult = {

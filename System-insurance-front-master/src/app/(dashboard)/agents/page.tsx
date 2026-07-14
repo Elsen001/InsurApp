@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { authApi, policiesApi, reportsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,12 +17,17 @@ const policyTypes = [
   { value: "travel", label: "Səfər" },
 ];
 
+// İcbari və Könüllü şirkət seçimləri
+const ICBARI_COMPANIES = ["Atəşgah", "Paşa", "Mega", "Qala", "Xalq"];
+const KONULLU_COMPANIES = ["Atəşgah", "Paşa", "Mega", "Qala", "Xalq", "Atəşgah Həyat", "Qala Həyat", "Paşa Həyat"];
+
 export default function AgentsPage() {
+  const router = useRouter();
   const [agents, setAgents] = useState<any[]>([]);
   const [allPolicies, setAllPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", commission_rate: "10", role: "agent", parent_agent_id: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", address: "", vezife: "", filial: "", role: "agent", parent_agent_id: "", icbari: [] as string[], konullu: [] as string[] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -72,26 +78,35 @@ export default function AgentsPage() {
     setSaving(true);
     setError("");
     try {
+      const companies = { icbari: form.icbari, konullu: form.konullu };
+      const profile = {
+        address: form.address || undefined,
+        vezife: form.vezife || undefined,
+        filial: form.filial || undefined,
+      };
       if (form.role === "subagent") {
         if (!form.parent_agent_id) throw { response: { data: { message: "Subagent üçün valideyn agent seçin" } } };
         await authApi.createSubagent({
           name: form.name,
           email: form.email,
           password: form.password,
-          commission_rate: Number(form.commission_rate),
           parent_agent_id: Number(form.parent_agent_id),
+          companies,
+          ...profile,
         });
       } else {
         await authApi.createAgent({
           name: form.name,
           email: form.email,
           password: form.password,
-          commission_rate: Number(form.commission_rate),
+          companies,
+          ...profile,
         });
       }
       setShowForm(false);
-      setForm({ name: "", email: "", password: "", commission_rate: "10", role: "agent", parent_agent_id: "" });
-      load();
+      setForm({ name: "", email: "", password: "", address: "", vezife: "", filial: "", role: "agent", parent_agent_id: "", icbari: [], konullu: [] });
+      // Yaratdıqdan sonra Bonuslar səhifəsinə keç
+      router.push("/bonuses");
     } catch (err: any) {
       setError(err.response?.data?.message || "Xəta baş verdi");
     } finally {
@@ -125,60 +140,109 @@ export default function AgentsPage() {
         <Card className="border-primary/30">
           <CardHeader><CardTitle>{form.role === "subagent" ? "Yeni Subagent Yarat" : "Yeni Agent Yarat"}</CardTitle></CardHeader>
           <CardContent>
-            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Rol seçimi */}
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Növ *</Label>
-                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
-                  <button type="button" onClick={() => setForm(f => ({ ...f, role: "agent", parent_agent_id: "" }))}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${form.role === "agent" ? "bg-primary text-white shadow" : "text-slate-600"}`}>
-                    Agent
-                  </button>
-                  <button type="button" onClick={() => setForm(f => ({ ...f, role: "subagent" }))}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${form.role === "subagent" ? "bg-primary text-white shadow" : "text-slate-600"}`}>
-                    Subagent
-                  </button>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="flex flex-col md:flex-row gap-6">
+                {/* SOL — input bloku */}
+                <div className="flex-1 space-y-4">
+                  {/* Rol seçimi */}
+                  <div className="space-y-2">
+                    <Label>Növ *</Label>
+                    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+                      <button type="button" onClick={() => setForm(f => ({ ...f, role: "agent", parent_agent_id: "" }))}
+                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${form.role === "agent" ? "bg-primary text-white shadow" : "text-slate-600"}`}>
+                        Agent
+                      </button>
+                      <button type="button" onClick={() => setForm(f => ({ ...f, role: "subagent" }))}
+                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${form.role === "subagent" ? "bg-primary text-white shadow" : "text-slate-600"}`}>
+                        Subagent
+                      </button>
+                    </div>
+                  </div>
+
+                  {form.role === "subagent" && (
+                    <div className="space-y-2">
+                      <Label>Valideyn agent *</Label>
+                      <select
+                        value={form.parent_agent_id}
+                        onChange={e => setForm(f => ({ ...f, parent_agent_id: e.target.value }))}
+                        required
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">— Agent seçin —</option>
+                        {agents.map(a => (
+                          <option key={a.id} value={a.id}>{a.name} ({a.email})</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-muted-foreground">Subagent seçilmiş agentin altında çalışacaq.</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Ad Soyad *</Label>
+                    <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Ünvan</Label>
+                    <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Ünvan" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Vəzifə</Label>
+                    <Input value={form.vezife} onChange={e => setForm(f => ({ ...f, vezife: e.target.value }))} placeholder="Vəzifəni yazın" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Filial və ya nümayəndəlik</Label>
+                    <Input value={form.filial} onChange={e => setForm(f => ({ ...f, filial: e.target.value }))} placeholder="Filial və ya nümayəndəlik" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email *</Label>
+                    <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Şifrə *</Label>
+                    <Input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required minLength={6} />
+                  </div>
+                </div>
+
+                {/* SAĞ — sığorta növləri seçimləri */}
+                <div className="flex-1 flex flex-col sm:flex-row gap-4">
+                  {/* İcbari */}
+                  <div className="flex-1 space-y-2">
+                    <Label>İcbari sığorta növləri</Label>
+                    <div className="flex flex-col gap-1.5">
+                      {ICBARI_COMPANIES.map(c => {
+                        const on = form.icbari.includes(c);
+                        return (
+                          <label key={c} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${on ? "bg-primary/5 border-primary text-primary" : "border-slate-200 hover:border-primary/40"}`}>
+                            <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={on}
+                              onChange={() => setForm(f => ({ ...f, icbari: on ? f.icbari.filter(x => x !== c) : [...f.icbari, c] }))} />
+                            {c}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Könüllü */}
+                  <div className="flex-1 space-y-2">
+                    <Label>Könüllü sığorta növləri</Label>
+                    <div className="flex flex-col gap-1.5">
+                      {KONULLU_COMPANIES.map(c => {
+                        const on = form.konullu.includes(c);
+                        return (
+                          <label key={c} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${on ? "bg-primary/5 border-primary text-primary" : "border-slate-200 hover:border-primary/40"}`}>
+                            <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={on}
+                              onChange={() => setForm(f => ({ ...f, konullu: on ? f.konullu.filter(x => x !== c) : [...f.konullu, c] }))} />
+                            {c}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {form.role === "subagent" && (
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Valideyn agent *</Label>
-                  <select
-                    value={form.parent_agent_id}
-                    onChange={e => setForm(f => ({ ...f, parent_agent_id: e.target.value }))}
-                    required
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">— Agent seçin —</option>
-                    {agents.map(a => (
-                      <option key={a.id} value={a.id}>{a.name} ({a.email})</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-muted-foreground">Subagent seçilmiş agentin altında çalışacaq.</p>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>Ad Soyad *</Label>
-                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Email *</Label>
-                <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Şifrə *</Label>
-                <Input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required minLength={6} />
-              </div>
-              <div className="space-y-2">
-                <Label>Komissiya faizi (%) *</Label>
-                <Input type="number" min="0" max="100" step="0.5" value={form.commission_rate} onChange={e => setForm(f => ({ ...f, commission_rate: e.target.value }))} required />
-              </div>
-              {error && <div className="sm:col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>}
-              <div className="sm:col-span-2">
-                <Button type="submit" loading={saving}>{form.role === "subagent" ? "Subagent yarat" : "Agent yarat"}</Button>
-              </div>
+              {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>}
+              <Button type="submit" loading={saving}>{form.role === "subagent" ? "Subagent yarat" : "Agent yarat"}</Button>
             </form>
           </CardContent>
         </Card>

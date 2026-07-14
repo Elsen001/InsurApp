@@ -7,6 +7,10 @@ import {
   VEHICLE_CATEGORIES,
   VEHICLE_TYPES,
   DIGER_TYPES,
+  ENGINE_BANDS,
+  QADAGAN_VEHICLES,
+  minikPremium,
+  minikElektroPremium,
   calcAtesgahAvto,
   calcRegionCommission,
   regionIsBaki,
@@ -21,20 +25,25 @@ type Props = {
   onPick?: (percent: number) => void;
 };
 
+// Faiz: yalnız 0–99 (2 rəqəm, mənfi yox, 100+ yox)
+const clampPct = (v: string) => v.replace(/[^\d]/g, "").slice(0, 2);
+
 export function AtesgahAvtoCalc({ onPick }: Props) {
   const [person, setPerson] = useState<PersonType>("fiziki");
   const [vehicleType, setVehicleType] = useState<VehicleType | "">(""); // ilk başda heç biri
   const [category, setCategory] = useState<VehicleCategory>("diger");
   const [electric, setElectric] = useState(false);
-  const [cc, setCc] = useState("");
   const [digerType, setDigerType] = useState<string>("agir_texnika");
+  const [bandPercents, setBandPercents] = useState<Record<string, string>>({}); // mühərrik bandı → faiz
+  const [qadaganActive, setQadaganActive] = useState<Record<number, boolean>>({}); // qadağan NV → aktiv/deaktiv
 
   const [dqn, setDqn] = useState("");
   const [regionCat, setRegionCat] = useState<string>(REGION_CATEGORIES[0].key);
   const [regionPremium, setRegionPremium] = useState("");
 
-  const result = vehicleType
-    ? calcAtesgahAvto({ person, vehicleType, category, cc: cc ? Number(cc) : null, electric, digerType })
+  // Yalnız Digər/Yük üçün ümumi nəticə (Minik artıq band-band cədvəldir)
+  const result = vehicleType && vehicleType !== "minik"
+    ? calcAtesgahAvto({ person, vehicleType, category, cc: null, electric, digerType })
     : null;
 
   const regionKey: RegionKey = dqn ? (regionIsBaki(dqn) ? "baki" : "region") : "region";
@@ -74,7 +83,7 @@ export function AtesgahAvtoCalc({ onPick }: Props) {
         {!vehicleType && <p className="text-xs text-muted-foreground">Hesablama üçün nəqliyyat növünü seçin.</p>}
       </div>
 
-      {/* ── MİNİK — mühərrik həcmi əsaslı (açılır) ── */}
+      {/* ── MİNİK — hər band üçün sığorta haqqı + faiz input ── */}
       {vehicleType === "minik" && (
         <div className="space-y-4 border-l-2 border-primary/30 pl-4">
           <div className="space-y-2">
@@ -89,24 +98,62 @@ export function AtesgahAvtoCalc({ onPick }: Props) {
             </div>
           </div>
 
-          {!electric && (
-            <div className="space-y-2 max-w-xs">
-              <Label>Mühərrik həcmi (sm³)</Label>
-              <Input type="number" min="0" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="məs. 2200" />
+          {/* Band cədvəli: Mühərrik | Sığorta haqqı | Faiz input | götür */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 px-2 pb-1 text-xs font-semibold text-muted-foreground border-b">
+              <span className="flex-1">Mühərrik</span>
+              <span className="w-24 text-right">Sığorta haqqı</span>
+              <span className="w-24 text-center">Faiz (%)</span>
             </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <ResultBox label="Sığorta haqqı" value={result?.ok && result.premium != null ? `${result.premium} AZN` : "—"} />
-            <ResultBox label="Komissiya faizi" value={result?.ok && result.commissionPercent != null ? `${result.commissionPercent}%` : (result?.ok ? "yoxdur" : "—")} accent />
-            <ResultBox label="Komissiya (AZN)" value={result?.ok && result.premium != null ? `${(((result.premium) * (result.commissionPercent ?? 0)) / 100).toFixed(2)} AZN` : "—"} />
+            {(electric ? [{ key: "elektro", label: "Elektromobil" }] : ENGINE_BANDS.map((b) => ({ key: b.key, label: b.label }))).map((b) => {
+              const premium = electric ? minikElektroPremium(category) : minikPremium(category, b.key);
+              const pctVal = bandPercents[b.key] ?? "0";
+              const disabled = premium == null; // bu kateqoriyada tarif yoxdur (məs. VAZ/LADA yuxarı bandlar)
+              return (
+                <div key={b.key} className={`flex items-center gap-3 rounded-md px-2 py-1 ${disabled ? "opacity-40" : "hover:bg-slate-50"}`}>
+                  <span className="flex-1 text-sm text-slate-700">{b.label}</span>
+                  <span className="w-24 text-right text-sm font-medium text-slate-800">{premium != null ? `${premium} AZN` : "—"}</span>
+                  <div className="relative w-24">
+                    <Input
+                      type="text" inputMode="numeric" maxLength={2}
+                      value={pctVal}
+                      disabled={disabled}
+                      onChange={(e) => setBandPercents((p) => ({ ...p, [b.key]: clampPct(e.target.value) }))}
+                      className="pr-6 text-right h-8"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {result && !result.ok && result.message && <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">{result.message}</p>}
-          {result?.ok && result.message && <p className="text-xs text-slate-500">{result.message}</p>}
-          {onPick && result?.ok && result.commissionPercent != null && (
-            <button type="button" onClick={() => onPick(result.commissionPercent as number)} className="text-sm font-medium text-primary border border-primary/40 rounded-lg px-4 py-2 hover:bg-primary/5 transition-colors">
-              Bu komissiya faizini bonus kimi götür ({result.commissionPercent}%)
-            </button>
+          <p className="text-[11px] text-muted-foreground">Hər band üçün sığorta haqqı göstərilir; faizi özünüz yazın.</p>
+
+          {/* Qadağan edilmiş NV — marka/model aktiv/deaktiv siyahısı */}
+          {category === "qadagan" && !electric && (
+            <div className="space-y-2">
+              <Label>Qadağan edilmiş NV ({QADAGAN_VEHICLES.length}) — aktiv / deaktiv</Label>
+              <div className="max-h-[360px] overflow-y-auto border border-slate-200 rounded-lg divide-y">
+                {QADAGAN_VEHICLES.map((v, i) => {
+                  const active = qadaganActive[i] ?? true;
+                  return (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50">
+                      <span className="w-5 text-xs text-muted-foreground shrink-0">{i + 1}</span>
+                      <span className="flex-1 text-sm min-w-0 truncate">
+                        <b className="text-slate-800">{v.brand}</b> <span className="text-slate-500">{v.model}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQadaganActive((p) => ({ ...p, [i]: !(p[i] ?? true) }))}
+                        className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition ${active ? "bg-slate-100 text-emerald-700" : "bg-slate-100 text-red-600"}`}
+                      >
+                        {active ? "Aktiv" : "Deaktiv"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -170,15 +217,6 @@ export function AtesgahAvtoCalc({ onPick }: Props) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function ResultBox({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className={`rounded-xl border p-3 ${accent ? "border-primary/30 bg-primary/5" : "border-slate-200 bg-slate-50"}`}>
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className={`text-lg font-bold ${accent ? "text-primary" : "text-slate-800"}`}>{value}</p>
     </div>
   );
 }

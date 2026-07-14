@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PRODUCT_GROUPS, PRODUCT_LABELS } from "@/lib/products";
+import { PRODUCT_GROUPS, PRODUCT_LABELS, ALL_PRODUCTS } from "@/lib/products";
 import { AtesgahAvtoCalc } from "@/components/AtesgahAvtoCalc";
 import { PashaBonusCalc } from "@/components/PashaBonusCalc";
-import { Plus, Trash2, Gift, Percent, Car, Building2 } from "lucide-react";
+import { Plus, Trash2, Gift, Percent, Car, Building2, Search, ChevronDown } from "lucide-react";
+
+// Faiz: yalnız 0–99 (2 rəqəm, mənfi yox, 100+ yox)
+const clampPct = (v: string) => v.replace(/[^\d]/g, "").slice(0, 2);
 
 export default function BonusesPage() {
   const { data: session, status } = useSession();
@@ -21,9 +24,12 @@ export default function BonusesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ product: "", percent: "", note: "" });
+  const [percents, setPercents] = useState<Record<string, string>>({});
+  const [note, setNote] = useState("");
   const [mode, setMode] = useState<"simple" | "atesgah" | "pasha">("simple");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bonusSearch, setBonusSearch] = useState("");
+  const [expandedUser, setExpandedUser] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -43,19 +49,30 @@ export default function BonusesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!form.product) { setError("Məhsul seçin"); return; }
     if (selectedIds.length === 0) { setError("Ən azı bir agent və ya subagent seçin"); return; }
+    // Bütün məhsullar default 0 — yalnız 0-dan böyük olanlar üçün bonus yaranır
+    const entries = ALL_PRODUCTS
+      .map(p => [p.value, percents[p.value] ?? "0"] as [string, string])
+      .filter(([, v]) => Number(v) > 0);
+    if (entries.length === 0) { setError("Ən azı bir məhsula 0-dan böyük bonus faizi yazın"); return; }
 
     setSaving(true);
     try {
-      await Promise.all(selectedIds.map(uid => bonusesApi.create({
-        user_id: uid,
-        product: form.product,
-        product_label: PRODUCT_LABELS[form.product] || form.product,
-        percent: Number(form.percent) || 0,
-        note: form.note || undefined,
-      })));
-      setForm({ product: "", percent: "", note: "" });
+      const calls: Promise<any>[] = [];
+      for (const uid of selectedIds) {
+        for (const [product, pct] of entries) {
+          calls.push(bonusesApi.create({
+            user_id: uid,
+            product,
+            product_label: PRODUCT_LABELS[product] || product,
+            percent: Number(pct) || 0,
+            note: note || undefined,
+          }));
+        }
+      }
+      await Promise.all(calls);
+      setPercents({});
+      setNote("");
       setSelectedIds([]);
       load();
     } catch (err: any) {
@@ -138,7 +155,7 @@ export default function BonusesPage() {
           <CardContent className="pt-5">
             <AtesgahAvtoCalc
               onPick={(pct) => {
-                setForm(f => ({ ...f, percent: String(pct), product: f.product || "avtonəqliyyat" }));
+                setPercents(p => ({ ...p, "avtonəqliyyat": String(pct) }));
                 setMode("simple");
               }}
             />
@@ -152,7 +169,7 @@ export default function BonusesPage() {
           <CardContent className="pt-5">
             <PashaBonusCalc
               onPick={(pct) => {
-                setForm(f => ({ ...f, percent: String(pct), product: f.product || "avtonəqliyyat" }));
+                setPercents(p => ({ ...p, "avtonəqliyyat": String(pct) }));
                 setMode("simple");
               }}
             />
@@ -210,34 +227,41 @@ export default function BonusesPage() {
               </div>
             </div>
 
-            {/* Məhsul seçimi */}
-            <div className="space-y-2">
-              <Label>Sığorta məhsulu *</Label>
-              <select
-                value={form.product}
-                onChange={e => setForm(f => ({ ...f, product: e.target.value }))}
-                required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">— Məhsul seçin —</option>
+            {/* Məhsullar üzrə bonus faizi — alt-alta siyahı */}
+            <div className="space-y-2 md:col-span-2">
+              <Label>Sığorta məhsulları üzrə bonus faizi (%)</Label>
+              <div className="space-y-3 max-h-[240px] overflow-y-auto border border-slate-200 rounded-lg p-3">
                 {PRODUCT_GROUPS.map(g => (
-                  <optgroup key={g.key} label={g.label}>
-                    {g.items.map(it => <option key={it.value} value={it.value}>{it.label}</option>)}
-                  </optgroup>
+                  <div key={g.key} className="space-y-0.5">
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wide bg-slate-50 px-2 py-1 rounded">{g.label}</p>
+                    {g.items.map(it => {
+                      const val = percents[it.value] ?? "0";
+                      const filled = Number(val) > 0;
+                      return (
+                        <div key={it.value} className={`flex items-center gap-3 rounded-md px-2 py-1 ${filled ? "bg-primary/5" : "hover:bg-slate-50"}`}>
+                          <span className="flex-1 text-sm text-slate-700">{it.label}</span>
+                          <div className="relative w-20 shrink-0">
+                            <Input
+                              type="text" inputMode="numeric" maxLength={2}
+                              value={val}
+                              onChange={e => setPercents(p => ({ ...p, [it.value]: clampPct(e.target.value) }))}
+                              className="pr-6 text-right h-8"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ))}
-              </select>
+              </div>
+              <p className="text-xs text-muted-foreground">Yalnız faiz yazdığınız məhsullar üçün bonus təyin olunur.</p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Bonus faizi (%) *</Label>
-              <Input type="number" min="0" max="100" step="0.01" value={form.percent}
-                onChange={e => setForm(f => ({ ...f, percent: e.target.value }))} required placeholder="məs. 5" />
-              <p className="text-xs text-muted-foreground">Satılan sığortanın premiumundan tutulacaq faiz.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Qeyd</Label>
-              <Input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="İxtiyari" />
+            {/* Qeyd */}
+            <div className="space-y-2 md:col-span-2">
+              <Label>Qeyd (bütün seçilənlərə)</Label>
+              <Input value={note} onChange={e => setNote(e.target.value)} placeholder="İxtiyari" />
             </div>
 
             {error && <div className="md:col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>}
@@ -246,55 +270,99 @@ export default function BonusesPage() {
             </div>
           </form>
           <p className="text-xs text-muted-foreground mt-3">
-            Eyni istifadəçi + məhsul üçün təkrar təyin etsəniz, mövcud bonus yenilənir. Misal: Yuvam üçün 5% → agent Yuvam satdıqda premiumun 5%-i onun bonusudur.
+            Faiz yazdığınız hər məhsul üçün seçilmiş agent/subagentlərə bonus yaranır. Eyni istifadəçi + məhsul təkrar təyin edilsə, mövcud bonus yenilənir.
           </p>
         </CardContent>
       </Card>
 
       {/* Mövcud bonuslar */}
       <Card>
-        <CardHeader><CardTitle className="text-lg">Təyin olunmuş bonuslar</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-lg">Agent və bonus siyahısı</CardTitle>
+            {/* Axtarış */}
+            <div className="relative w-full sm:w-72">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={bonusSearch}
+                onChange={e => setBonusSearch(e.target.value)}
+                placeholder="Ad, Agent və məhsul axtar..."
+                className="pl-9 h-9"
+              />
+            </div>
+          </div>
+        </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-8"><div className="animate-spin h-7 w-7 rounded-full border-4 border-primary border-t-transparent" /></div>
-          ) : bonuses.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground text-sm">Hələ bonus təyin olunmayıb</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="px-3 py-2 font-semibold">İşçi</th>
-                    <th className="px-3 py-2 font-semibold">Növ</th>
-                    <th className="px-3 py-2 font-semibold">Məhsul</th>
-                    <th className="px-3 py-2 font-semibold text-right">Bonus faizi</th>
-                    <th className="px-3 py-2 font-semibold">Qeyd</th>
-                    <th className="px-3 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bonuses.map(b => (
-                    <tr key={b.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2 font-medium">{b.user_name}</td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${b.user_role === "subagent" ? "bg-indigo-100 text-indigo-700" : "bg-blue-100 text-blue-700"}`}>
-                          {b.user_role === "subagent" ? "Subagent" : "Agent"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">{b.product_label}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-emerald-700">{Number(b.percent).toFixed(2)}%</td>
-                      <td className="px-3 py-2 text-muted-foreground">{b.note || "—"}</td>
-                      <td className="px-3 py-2 text-right">
-                        <button onClick={() => handleDelete(b.id)} className="text-red-500 hover:text-red-700 p-1">
-                          <Trash2 size={15} />
+          ) : (agents.length + subagents.length) === 0 ? (
+            <p className="text-center py-8 text-muted-foreground text-sm">Agent və ya subagent yoxdur</p>
+          ) : (() => {
+            const q = bonusSearch.trim().toLowerCase();
+            const roleLabel = (r: string) => (r === "subagent" ? "subagent" : "agent");
+            // Hər agent/subagent bir dəfə; bonusları içində
+            const staffAll = [...agents, ...subagents];
+            const withBonuses = staffAll.map(u => ({ user: u, list: bonuses.filter(b => b.user_id === u.id) }));
+            const filtered = q
+              ? withBonuses.filter(({ user, list }) =>
+                  user.name.toLowerCase().includes(q) ||
+                  roleLabel(user.role).includes(q) ||
+                  list.some(b => (b.product_label || "").toLowerCase().includes(q)))
+              : withBonuses;
+            if (filtered.length === 0) {
+              return <p className="text-center py-8 text-muted-foreground text-sm">"{bonusSearch}" üzrə nəticə tapılmadı</p>;
+            }
+            return (
+              <>
+                {/* 5 sətir görünür, çoxaldıqda scroll */}
+                <div className="overflow-auto max-h-[320px] rounded-lg border border-slate-200 divide-y">
+                  {filtered.map(({ user, list }) => {
+                    const expanded = q ? true : expandedUser === user.id;
+                    return (
+                      <div key={user.id}>
+                        {/* Agent sətri (tək line) */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedUser(prev => (prev === user.id ? null : user.id))}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 text-left"
+                        >
+                          <span className="font-medium text-slate-800 flex-1 truncate">{user.name}</span>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${user.role === "subagent" ? "bg-indigo-100 text-indigo-700" : "bg-blue-100 text-blue-700"}`}>
+                            {user.role === "subagent" ? "Subagent" : "Agent"}
+                          </span>
+                          <span className="text-xs text-muted-foreground w-16 text-right">{list.length} bonus</span>
+                          <ChevronDown size={16} className={`text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+
+                        {/* Bonuslar (alt-alta) */}
+                        {expanded && (
+                          <div className="bg-slate-50/60 px-3 pb-2 pt-1">
+                            {list.length === 0 ? (
+                              <p className="text-sm text-muted-foreground italic pl-3 py-1">Bonus təyin olunmayıb</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {list.map(b => (
+                                  <div key={b.id} className="flex items-center gap-3 pl-3 pr-1 py-1.5 rounded-md bg-white border border-slate-100">
+                                    <span className="flex-1 text-sm text-slate-700 truncate">{b.product_label}</span>
+                                    {b.note && <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[120px]">{b.note}</span>}
+                                    <span className="font-semibold text-emerald-700 text-sm w-16 text-right">{Number(b.percent).toFixed(2)}%</span>
+                                    <button onClick={() => handleDelete(b.id)} className="text-red-500 hover:text-red-700 p-1 shrink-0">
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">{staffAll.length} agent/subagent · {bonuses.length} bonus{q ? ` · "${bonusSearch}" üzrə ${filtered.length} nəticə` : ""}</p>
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>

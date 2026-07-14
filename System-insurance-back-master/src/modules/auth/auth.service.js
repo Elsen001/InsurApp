@@ -59,7 +59,8 @@ const getStaff = async () => {
 };
 
 const createAgent = async (data) => {
-  const { name, email, password, commission_rate, role = 'agent', parent_agent_id = null } = data;
+  const { name, email, password, commission_rate, role = 'agent', parent_agent_id = null, companies = null,
+    address = null, vezife = null, filial = null } = data;
   const exists = await db('users').where({ email }).first();
   if (exists) throw new Error('Bu email artıq istifadə olunur');
   if (role === 'subagent' && !parent_agent_id) {
@@ -78,8 +79,12 @@ const createAgent = async (data) => {
     role,
     parent_agent_id: parentId,
     commission_rate: commission_rate || 10,
+    companies: companies ? JSON.stringify(companies) : null,
+    address: address || null,
+    vezife: vezife || null,
+    filial: filial || null,
   });
-  return { id, name, email, role, parent_agent_id: parentId, commission_rate: commission_rate || 10 };
+  return { id, name, email, role, parent_agent_id: parentId, commission_rate: commission_rate || 10, companies, address, vezife, filial };
 };
 
 const updateAgent = async (id, data) => {

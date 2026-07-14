@@ -13,17 +13,17 @@ export type PashaRow = {
 };
 
 export const PASHA_ROWS: PashaRow[] = [
-  // ── MİNİK ──
+  // ── MİNİK ── (komissiyalar hələlik 0 — admin özü təyin edəcək)
   { id: "m_0_1500_a", group: "MİNİK", label: "0–1500 sm³", year: "2022-dən", note: "Honda, Nissan, KİA, Chevrolet, Toyota, Changan, BYD, FİAT — QADAĞA", commission: 0 },
   { id: "m_0_1500_b", group: "MİNİK", label: "0–1500 sm³", note: "Yalnız Sovet avtomobilləri yazılır", commission: 0 },
-  { id: "m_1501_reg", group: "MİNİK", label: "1501–2000 sm³", dqn: "Region", year: "2002-dən aşağı", note: "Yalnız Sovet avtomobilləri yazılır", commission: 5 },
-  { id: "m_1501_bak", group: "MİNİK", label: "1501–2000 sm³", dqn: "Abşeron, Bakı, Sumqayıt, Gəncə", year: "2020-dən", note: "Chevrolet, Ford, GreatWall, Jetour, Lada, Renault, VGV, Honda, BMW, Faw, Khazar, Jeep, Kia, Volkswagen — QADAĞA", commission: 5 },
-  { id: "m_2001_reg", group: "MİNİK", label: "2001–2500 sm³", dqn: "Region", year: "2002-dən", note: "Toyota, QAZ — QADAĞA", commission: 8 },
-  { id: "m_2001_bak", group: "MİNİK", label: "2001–2500 sm³", dqn: "Abşeron, Bakı, Sumqayıt, Gəncə", year: "2017-dən", note: "Toyota, QAZ — QADAĞA", commission: 8 },
-  { id: "m_2501_bak", group: "MİNİK", label: "2501–3000 sm³", dqn: "Abşeron, Bakı, Sumqayıt, Gəncə", year: "2020-dən", note: "Audi, BMW, Ford, Hyundai, Land Rover, Porshe", commission: 10 },
+  { id: "m_1501_reg", group: "MİNİK", label: "1501–2000 sm³", dqn: "Region", year: "2002-dən aşağı", note: "Yalnız Sovet avtomobilləri yazılır", commission: 0 },
+  { id: "m_1501_bak", group: "MİNİK", label: "1501–2000 sm³", dqn: "Abşeron, Bakı, Sumqayıt, Gəncə", year: "2020-dən", note: "Chevrolet, Ford, GreatWall, Jetour, Lada, Renault, VGV, Honda, BMW, Faw, Khazar, Jeep, Kia, Volkswagen — QADAĞA", commission: 0 },
+  { id: "m_2001_reg", group: "MİNİK", label: "2001–2500 sm³", dqn: "Region", year: "2002-dən", note: "Toyota, QAZ — QADAĞA", commission: 0 },
+  { id: "m_2001_bak", group: "MİNİK", label: "2001–2500 sm³", dqn: "Abşeron, Bakı, Sumqayıt, Gəncə", year: "2017-dən", note: "Toyota, QAZ — QADAĞA", commission: 0 },
+  { id: "m_2501_bak", group: "MİNİK", label: "2501–3000 sm³", dqn: "Abşeron, Bakı, Sumqayıt, Gəncə", year: "2020-dən", note: "Audi, BMW, Ford, Hyundai, Land Rover, Porshe", commission: 0 },
   { id: "m_2501_reg", group: "MİNİK", label: "2501–3000 sm³", dqn: "Region", note: "ÜMUMİ QADAĞA", commission: 0 },
-  { id: "m_3001", group: "MİNİK", label: "3001–3500 sm³", commission: 12 },
-  { id: "m_3501", group: "MİNİK", label: ">3501 sm³", commission: 12 },
+  { id: "m_3001", group: "MİNİK", label: "3001–3500 sm³", commission: 0 },
+  { id: "m_3501", group: "MİNİK", label: ">3501 sm³", commission: 0 },
 
   // ── YÜK ──
   { id: "y_elektro", group: "YÜK", label: "Elektromobil", note: "Tesla, Zeekr, Chevrolet, Dazun, DongFeng, Toyota, MG — QADAĞA", commission: 5 },

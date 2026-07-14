@@ -57,6 +57,13 @@ const createAgent = async (req, res) => {
       commission_rate: z.number().min(0).max(100).optional(),
       role: z.enum(['agent', 'subagent']).optional(),
       parent_agent_id: z.number().int().positive().optional(),
+      companies: z.object({
+        icbari: z.array(z.string()).optional(),
+        konullu: z.array(z.string()).optional(),
+      }).optional(),
+      address: z.string().optional(),
+      vezife: z.string().optional(),
+      filial: z.string().optional(),
     });
     const data = agentSchema.parse(req.body);
     const agent = await authService.createAgent(data);
