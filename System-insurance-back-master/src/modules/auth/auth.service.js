@@ -38,10 +38,10 @@ const getMe = async (userId) => {
 const getAgents = async () => {
   const agents = await db('users')
     .where({ role: 'agent' })
-    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'created_at');
+    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'created_at', 'address', 'vezife', 'filial', 'companies');
   const subs = await db('users')
     .where({ role: 'subagent' })
-    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'parent_agent_id', 'created_at');
+    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'parent_agent_id', 'created_at', 'address', 'vezife', 'filial', 'companies');
   return agents.map((a) => ({
     ...a,
     subagents: subs.filter((s) => s.parent_agent_id === a.id),
@@ -53,7 +53,7 @@ const getStaff = async () => {
   return db('users')
     .whereIn('role', ['agent', 'subagent'])
     .andWhere({ is_active: true })
-    .select('id', 'name', 'email', 'role', 'parent_agent_id')
+    .select('id', 'name', 'email', 'role', 'parent_agent_id', 'vezife', 'filial')
     .orderBy('role', 'asc')
     .orderBy('name', 'asc');
 };

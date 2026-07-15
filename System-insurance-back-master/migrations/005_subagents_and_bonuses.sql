@@ -7,8 +7,11 @@ USE insurance_db;
 ALTER TABLE users
   MODIFY COLUMN role ENUM('admin', 'agent', 'subagent') NOT NULL DEFAULT 'agent';
 
+-- Qeyd: TiDB eyni ALTER-də sütun əlavə edib ona FK qura bilmir — ayrı-ayrı icra olunur
 ALTER TABLE users
-  ADD COLUMN parent_agent_id INT NULL AFTER role,
+  ADD COLUMN parent_agent_id INT NULL AFTER role;
+
+ALTER TABLE users
   ADD CONSTRAINT fk_users_parent_agent
     FOREIGN KEY (parent_agent_id) REFERENCES users(id) ON DELETE SET NULL;
 

@@ -3,13 +3,23 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 
+function buildSsl() {
+  if (String(process.env.DB_SSL).toLowerCase() !== 'true') return undefined;
+  const ssl = { minVersion: 'TLSv1.2', rejectUnauthorized: true };
+  if (process.env.DB_CA && fs.existsSync(process.env.DB_CA)) {
+    ssl.ca = fs.readFileSync(process.env.DB_CA);
+  }
+  return ssl;
+}
+
 async function runMigrations() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
+    port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     multipleStatements: true,
+    ssl: buildSsl(),
   });
 
   try {

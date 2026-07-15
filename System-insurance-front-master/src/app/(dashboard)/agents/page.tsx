@@ -300,6 +300,13 @@ export default function AgentsPage() {
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">{agent.email}</p>
+                      {(agent.vezife || agent.filial) && (
+                        <p className="text-xs text-slate-500">
+                          {agent.vezife}
+                          {agent.vezife && agent.filial ? " · " : ""}
+                          {agent.filial}
+                        </p>
+                      )}
                     </div>
 
                     {/* Növ üzrə mini badge-lər */}
@@ -350,6 +357,11 @@ export default function AgentsPage() {
                                 <div className="text-sm">
                                   <span className="font-medium">{s.name}</span>
                                   <span className="text-xs text-muted-foreground ml-1.5">{s.email}</span>
+                                  {(s.vezife || s.filial) && (
+                                    <span className="text-xs text-slate-500 ml-1.5">
+                                      · {s.vezife}{s.vezife && s.filial ? " · " : ""}{s.filial}
+                                    </span>
+                                  )}
                                 </div>
                                 <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium ${s.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                                   {s.is_active ? "Aktiv" : "Deaktiv"}

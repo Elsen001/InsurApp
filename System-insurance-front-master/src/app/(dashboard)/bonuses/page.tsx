@@ -326,8 +326,15 @@ export default function BonusesPage() {
                           onClick={() => setExpandedUser(prev => (prev === user.id ? null : user.id))}
                           className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 text-left"
                         >
-                          <span className="font-medium text-slate-800 flex-1 truncate">{user.name}</span>
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${user.role === "subagent" ? "bg-indigo-100 text-indigo-700" : "bg-blue-100 text-blue-700"}`}>
+                          <span className="flex-1 min-w-0">
+                            <span className="font-medium text-slate-800 block truncate">{user.name}</span>
+                            {(user.vezife || user.filial) && (
+                              <span className="text-xs text-muted-foreground block truncate">
+                                {user.vezife}{user.vezife && user.filial ? " · " : ""}{user.filial}
+                              </span>
+                            )}
+                          </span>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${user.role === "subagent" ? "bg-indigo-100 text-indigo-700" : "bg-blue-100 text-blue-700"}`}>
                             {user.role === "subagent" ? "Subagent" : "Agent"}
                           </span>
                           <span className="text-xs text-muted-foreground w-16 text-right">{list.length} bonus</span>
