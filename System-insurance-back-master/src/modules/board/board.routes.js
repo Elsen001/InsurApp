@@ -11,8 +11,11 @@ router.get('/announcements', ctrl.getAnnouncements);
 router.post('/announcements', requireAdmin, ctrl.createAnnouncement);
 router.delete('/announcements/:id', requireAdmin, ctrl.deleteAnnouncement);
 
-// Chat — hamı oxuyur və yazır
+// Chat — hamı oxuyur və yazır (?peer=<id> → şəxsi yazışma)
 router.get('/messages', ctrl.getMessages);
 router.post('/messages', ctrl.postMessage);
+
+// İnbox kontaktları (şəxsi yazışma üçün)
+router.get('/contacts', ctrl.getContacts);
 
 module.exports = router;

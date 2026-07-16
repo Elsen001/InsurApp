@@ -3,22 +3,20 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calculator } from "lucide-react";
+import { RegionCommission } from "@/components/RegionCommission";
 import {
   VEHICLE_CATEGORIES,
   VEHICLE_TYPES,
   DIGER_TYPES,
   ENGINE_BANDS,
+  YUK_ROWS,
   QADAGAN_VEHICLES,
   minikPremium,
   minikElektroPremium,
   calcAtesgahAvto,
-  calcRegionCommission,
-  regionIsBaki,
-  REGION_CATEGORIES,
   type PersonType,
   type VehicleType,
   type VehicleCategory,
-  type RegionKey,
 } from "@/lib/atesgah-avto";
 
 type Props = {
@@ -35,19 +33,15 @@ export function AtesgahAvtoCalc({ onPick }: Props) {
   const [electric, setElectric] = useState(false);
   const [digerType, setDigerType] = useState<string>("agir_texnika");
   const [bandPercents, setBandPercents] = useState<Record<string, string>>({}); // mühərrik bandı → faiz
+  const [yukPercents, setYukPercents] = useState<Record<string, string>>({}); // yük sətri → faiz
   const [qadaganActive, setQadaganActive] = useState<Record<number, boolean>>({}); // qadağan NV → aktiv/deaktiv
 
-  const [dqn, setDqn] = useState("");
-  const [regionCat, setRegionCat] = useState<string>(REGION_CATEGORIES[0].key);
-  const [regionPremium, setRegionPremium] = useState("");
 
   // Yalnız Digər/Yük üçün ümumi nəticə (Minik artıq band-band cədvəldir)
   const result = vehicleType && vehicleType !== "minik"
     ? calcAtesgahAvto({ person, vehicleType, category, cc: null, electric, digerType })
     : null;
 
-  const regionKey: RegionKey = dqn ? (regionIsBaki(dqn) ? "baki" : "region") : "region";
-  const regionRes = calcRegionCommission({ region: regionKey, category: regionCat, enteredPremium: Number(regionPremium) || 0 });
 
   const chip = (active: boolean) =>
     `px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
@@ -158,10 +152,38 @@ export function AtesgahAvtoCalc({ onPick }: Props) {
         </div>
       )}
 
-      {/* ── YÜK — tonaj əsaslı (açılır) ── */}
+      {/* ── YÜK — cədvəl: Sətir | Faiz (%) ── */}
       {vehicleType === "yuk" && (
         <div className="space-y-2 border-l-2 border-primary/30 pl-4">
-          <p className="text-sm text-slate-600">Yük — <b>tonaj əsaslıdır</b>. Tariflər hələ daxil edilməyib (default).</p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 px-2 pb-1 text-xs font-semibold text-muted-foreground border-b">
+              <span className="flex-1">Sətir</span>
+              <span className="w-24 text-center">Faiz (%)</span>
+            </div>
+            {YUK_ROWS.map((r) => {
+              const pctVal = yukPercents[r.id] ?? "0";
+              return (
+                <div key={r.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-slate-50">
+                  <span className="flex-1 min-w-0">
+                    <span className="text-sm text-slate-800 font-medium">{r.label}</span>
+                    {r.note && (
+                      <span className={`block text-[11px] ${r.note.includes("QADAĞA") ? "text-red-600" : "text-slate-500"}`}>{r.note}</span>
+                    )}
+                  </span>
+                  <div className="relative w-24 shrink-0">
+                    <Input
+                      type="text" inputMode="numeric" maxLength={2}
+                      value={pctVal}
+                      onChange={(e) => setYukPercents((p) => ({ ...p, [r.id]: clampPct(e.target.value) }))}
+                      className="pr-6 text-right h-8"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">Faizi hər sətir üçün özünüz yazın.</p>
         </div>
       )}
 
@@ -186,37 +208,8 @@ export function AtesgahAvtoCalc({ onPick }: Props) {
         </div>
       )}
 
-      {/* ── Region üzrə komissiya ── */}
-      <div className="pt-4 border-t border-dashed space-y-3">
-        <Label className="font-semibold">Region üzrə komissiya (limit əsaslı)</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Qeydiyyat DQN kodu</Label>
-            <Input value={dqn} onChange={(e) => setDqn(e.target.value)} placeholder="məs. 90" />
-            <p className="text-[11px] text-muted-foreground">Region: <b>{regionKey === "baki" ? "Bakı qrupu" : "Regionlar"}</b></p>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Kateqoriya</Label>
-            <select value={regionCat} onChange={(e) => setRegionCat(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-              {REGION_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Sığorta haqqı (yazılan)</Label>
-            <Input type="number" value={regionPremium} onChange={(e) => setRegionPremium(e.target.value)} placeholder="0" />
-          </div>
-        </div>
-        {regionRes && (
-          <div className="flex flex-wrap items-center gap-4 text-sm bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
-            <span className="text-slate-500">Limit: <b className="text-slate-800">{regionRes.limit}</b></span>
-            <span className="text-slate-500">{(Number(regionPremium) || 0) <= regionRes.limit ? "Limitdən aşağı" : "Limitdən yuxarı"}</span>
-            <span className="ml-auto font-bold text-emerald-700 text-base">Komissiya: {regionRes.commissionPercent}%</span>
-            {onPick && (
-              <button type="button" onClick={() => onPick(regionRes.commissionPercent)} className="text-xs font-medium text-primary underline">bonus kimi götür</button>
-            )}
-          </div>
-        )}
-      </div>
+      {/* ── Region üzrə komissiya (paylaşılan komponent) ── */}
+      <RegionCommission onPick={onPick} />
     </div>
   );
 }

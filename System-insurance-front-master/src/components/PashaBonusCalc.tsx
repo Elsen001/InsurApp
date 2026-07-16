@@ -1,12 +1,17 @@
 "use client";
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Building2, ChevronDown } from "lucide-react";
+import { RegionCommission } from "@/components/RegionCommission";
 import { PASHA_ROWS, PASHA_BRANDS } from "@/lib/pasha-avto";
 
 type Props = {
   onPick?: (percent: number) => void;
 };
+
+// Faiz: yalnız 0–99 (2 rəqəm, mənfi yox, 100+ yox)
+const clampPct = (v: string) => v.replace(/[^\d]/g, "").slice(0, 2);
 
 type Person = "fiziki" | "huquqi";
 type VType = "" | "minik" | "yuk" | "diger";
@@ -26,7 +31,7 @@ const GROUP_MAP: Record<Exclude<VType, "">, string[]> = {
 export function PashaBonusCalc({ onPick }: Props) {
   const [person, setPerson] = useState<Person>("fiziki");
   const [vehicleType, setVehicleType] = useState<VType>("");
-  const [selectedId, setSelectedId] = useState<string>("");
+  const [rowPercents, setRowPercents] = useState<Record<string, string>>({}); // sətir → faiz
   const [showBrands, setShowBrands] = useState(false);
 
   let rows = vehicleType ? PASHA_ROWS.filter((r) => GROUP_MAP[vehicleType].includes(r.group)) : [];
@@ -34,13 +39,11 @@ export function PashaBonusCalc({ onPick }: Props) {
   if (vehicleType === "diger") {
     rows = rows.filter((r) => (r.group !== "Əmlak" ? true : person === "fiziki" ? r.id === "e_fiziki" : r.id === "e_huquqi"));
   }
-  const selected = rows.find((r) => r.id === selectedId);
 
   const chip = (active: boolean) =>
     `px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
       active ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:border-primary/40"
     }`;
-  const komColor = (v: number) => (v === 0 ? "text-red-600" : "text-emerald-700");
 
   return (
     <div className="space-y-5">
@@ -63,7 +66,7 @@ export function PashaBonusCalc({ onPick }: Props) {
         <Label>Nəqliyyat növü</Label>
         <div className="flex gap-2">
           {V_TYPES.map((t) => (
-            <button key={t.value} type="button" className={chip(vehicleType === t.value)} onClick={() => { setVehicleType(t.value); setSelectedId(""); }}>
+            <button key={t.value} type="button" className={chip(vehicleType === t.value)} onClick={() => { setVehicleType(t.value); }}>
               {t.label}
             </button>
           ))}
@@ -74,45 +77,45 @@ export function PashaBonusCalc({ onPick }: Props) {
       {/* Sətirlər (açılır) */}
       {vehicleType && (
         <div className="space-y-2 border-l-2 border-primary/30 pl-4">
-          <Label>Uyğun sətri seçin</Label>
-          <div className="space-y-2">
+          {/* Cədvəl: Sətir | Faiz (%) — Atəşgahdakı ilə eyni format */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 px-2 pb-1 text-xs font-semibold text-muted-foreground border-b">
+              <span className="flex-1">Sətir</span>
+              <span className="w-24 text-center">Faiz (%)</span>
+            </div>
             {rows.map((r) => {
-              const active = selectedId === r.id;
+              const pctVal = rowPercents[r.id] ?? "0";
               return (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setSelectedId(r.id)}
-                  className={`w-full text-left rounded-lg border p-3 transition-colors ${active ? "border-primary bg-primary/5" : "border-slate-200 hover:border-primary/40"}`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-semibold text-slate-800">{r.label}</span>
-                    <span className={`text-lg font-bold ${komColor(r.commission)}`}>{r.commission}%</span>
+                <div key={r.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-slate-50">
+                  <span className="flex-1 min-w-0">
+                    <span className="text-sm text-slate-800 font-medium">{r.label}</span>
+                    <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                      {r.dqn && <span>📍 {r.dqn}</span>}
+                      {r.year && <span>📅 {r.year}</span>}
+                    </span>
+                    {r.note && (
+                      <span className={`block text-[11px] ${r.note.includes("QADAĞA") ? "text-red-600" : "text-slate-500"}`}>{r.note}</span>
+                    )}
+                  </span>
+                  <div className="relative w-24 shrink-0">
+                    <Input
+                      type="text" inputMode="numeric" maxLength={2}
+                      value={pctVal}
+                      onChange={(e) => setRowPercents((p) => ({ ...p, [r.id]: clampPct(e.target.value) }))}
+                      className="pr-6 text-right h-8"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
-                    {r.dqn && <span>📍 {r.dqn}</span>}
-                    {r.year && <span>📅 {r.year}</span>}
-                  </div>
-                  {r.note && <p className={`text-xs mt-1 ${r.note.includes("QADAĞA") ? "text-red-600" : "text-slate-500"}`}>{r.note}</p>}
-                </button>
+                </div>
               );
             })}
           </div>
-
-          {/* Nəticə + bonus götür */}
-          {selected && (
-            <div className="flex flex-wrap items-center gap-4 text-sm bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mt-2">
-              <span className="text-slate-600">{selected.group} · {selected.label}</span>
-              <span className={`ml-auto font-bold text-base ${komColor(selected.commission)}`}>Komissiya: {selected.commission}%</span>
-              {onPick && (
-                <button type="button" onClick={() => onPick(selected.commission)} className="text-sm font-medium text-primary border border-primary/40 rounded-lg px-4 py-1.5 hover:bg-primary/5 transition-colors">
-                  bonus kimi götür ({selected.commission}%)
-                </button>
-              )}
-            </div>
-          )}
+          <p className="text-[11px] text-muted-foreground">Faizi hər sətir üçün özünüz yazın.</p>
         </div>
       )}
+
+      {/* ── Region üzrə komissiya (Atəşgahdakı ilə eyni) ── */}
+      <RegionCommission onPick={onPick} />
 
       {/* Marka istinadı */}
       <div className="border-t border-dashed pt-3">

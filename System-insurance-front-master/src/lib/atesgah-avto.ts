@@ -128,6 +128,16 @@ export const QADAGAN_VEHICLES: { brand: string; model: string }[] = [
   { brand: "KAYİ", model: "bütün modellər" },
 ];
 
+// YÜK sətirləri — faizlər admin tərəfindən yazılır (default 0)
+export const YUK_ROWS: { id: string; label: string; note?: string }[] = [
+  { id: "y_elektro", label: "Elektromobil", note: "Tesla, Zeekr, Chevrolet, Dazun, DongFeng, Toyota, MG — QADAĞA" },
+  { id: "y_0_3500", label: "0–3500 kg", note: "Mercedes, Chevrolet, Dacia, Ford Tranzit — QADAĞA" },
+  { id: "y_3501_7000", label: "3501–7000 kq", note: "ÜMUMİ QADAĞA" },
+  { id: "y_7000", label: "7000 kg-dan yuxarı" },
+  { id: "y_qosqu", label: "Qoşqu", note: "Dartıcısız QADAĞA" },
+  { id: "y_agir", label: "Ağır, Xüsusi təyinatlı" },
+];
+
 export function bandForCc(cc: number): string | null {
   const b = ENGINE_BANDS.find((x) => cc >= x.min && cc <= x.max);
   return b ? b.key : null;
@@ -232,14 +242,36 @@ const REGION_PRICING: Record<RegionKey, Record<string, { limit: number; below: n
     ">7001": { limit: 165, below: 10, above: 12 },
   },
   baki: {
-    "0-3500": { limit: 165, below: 5, above: 8 },
+    "0-3500": { limit: 165, below: 4, above: 8 },
     "3501-7000": { limit: 240, below: 3, above: 6 },
     ">7001": { limit: 200, below: 8, above: 10 },
   },
 };
 
+// Sığorta məbləği → SH (sığorta haqqı) cədvəli
+export const SIGORTA_MEBLEGI_SH: { amount: number; sh: number }[] = [
+  { amount: 5000, sh: 19 },
+];
+
+// Sürücünün qeydiyyatı — "Bakı" qrupuna aid rayonlar
+export const BAKI_DISTRICTS = [
+  "Bakı", "Sumqayıt", "Abşeron", "Ağdam", "Fizuli", "Qubadlı", "Zəngilan", "Cəbrayıl",
+  "Laçın", "Kəlbəcər", "Şuşa", "Xankəndi", "Ağdərə", "Xocalı", "Xocavənd",
+];
+export const DIGER_DISTRICT = "DİGƏR";
+
 export function regionIsBaki(dqnCode: string): boolean {
   return BAKI_DQN_CODES.includes((dqnCode || "").trim());
+}
+
+export function districtIsBaki(district: string): boolean {
+  return BAKI_DISTRICTS.includes((district || "").trim());
+}
+
+// QAYDA: DQN kodu VƏ sürücünün qeydiyyatı — hər ikisi siyahıda olmalıdır.
+// Hər hansı biri uyğun gəlməsə → Region sayılır.
+export function resolveRegion(dqnCode: string, driverDistrict: string): RegionKey {
+  return regionIsBaki(dqnCode) && districtIsBaki(driverDistrict) ? "baki" : "region";
 }
 
 export function calcRegionCommission(params: {

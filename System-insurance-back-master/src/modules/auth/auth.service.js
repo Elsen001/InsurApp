@@ -36,12 +36,17 @@ const getMe = async (userId) => {
 };
 
 const getAgents = async () => {
+  // Ən yeni yaradılanlar əvvəldə
   const agents = await db('users')
     .where({ role: 'agent' })
-    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'created_at', 'address', 'vezife', 'filial', 'companies');
+    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'created_at', 'address', 'vezife', 'filial', 'companies', 'fin', 'sv', 'rating')
+    .orderBy('created_at', 'desc')
+    .orderBy('id', 'desc');
   const subs = await db('users')
     .where({ role: 'subagent' })
-    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'parent_agent_id', 'created_at', 'address', 'vezife', 'filial', 'companies');
+    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'parent_agent_id', 'created_at', 'address', 'vezife', 'filial', 'companies', 'fin', 'sv', 'rating')
+    .orderBy('created_at', 'desc')
+    .orderBy('id', 'desc');
   return agents.map((a) => ({
     ...a,
     subagents: subs.filter((s) => s.parent_agent_id === a.id),
@@ -53,14 +58,14 @@ const getStaff = async () => {
   return db('users')
     .whereIn('role', ['agent', 'subagent'])
     .andWhere({ is_active: true })
-    .select('id', 'name', 'email', 'role', 'parent_agent_id', 'vezife', 'filial')
+    .select('id', 'name', 'email', 'role', 'parent_agent_id', 'vezife', 'filial', 'address', 'fin', 'sv', 'rating')
     .orderBy('role', 'asc')
     .orderBy('name', 'asc');
 };
 
 const createAgent = async (data) => {
   const { name, email, password, commission_rate, role = 'agent', parent_agent_id = null, companies = null,
-    address = null, vezife = null, filial = null } = data;
+    address = null, vezife = null, filial = null, fin = null, sv = null, rating = 0 } = data;
   const exists = await db('users').where({ email }).first();
   if (exists) throw new Error('Bu email artıq istifadə olunur');
   if (role === 'subagent' && !parent_agent_id) {
@@ -83,8 +88,11 @@ const createAgent = async (data) => {
     address: address || null,
     vezife: vezife || null,
     filial: filial || null,
+    fin: fin || null,
+    sv: sv || null,
+    rating: Number(rating) || 0,
   });
-  return { id, name, email, role, parent_agent_id: parentId, commission_rate: commission_rate || 10, companies, address, vezife, filial };
+  return { id, name, email, role, parent_agent_id: parentId, commission_rate: commission_rate || 10, companies, address, vezife, filial, fin, sv, rating: Number(rating) || 0 };
 };
 
 const updateAgent = async (id, data) => {

@@ -81,10 +81,14 @@ export const reportsApi = {
 
 export const boardApi = {
   getAnnouncements: () => api.get("/api/board/announcements"),
-  createAnnouncement: (data: { title?: string; body: string }) => api.post("/api/board/announcements", data),
+  createAnnouncement: (data: { title?: string; body: string; audience?: "all" | "agent" | "subagent" }) =>
+    api.post("/api/board/announcements", data),
   deleteAnnouncement: (id: number) => api.delete(`/api/board/announcements/${id}`),
-  getMessages: () => api.get("/api/board/messages"),
-  postMessage: (body: string) => api.post("/api/board/messages", { body }),
+  // peer verilibsə şəxsi yazışma, yoxsa ümumi söhbət
+  getMessages: (peer?: number) => api.get("/api/board/messages", { params: peer ? { peer } : {} }),
+  postMessage: (body: string, recipient_id?: number) =>
+    api.post("/api/board/messages", recipient_id ? { body, recipient_id } : { body }),
+  getContacts: () => api.get("/api/board/contacts"),
 };
 
 export const pricingRulesApi = {

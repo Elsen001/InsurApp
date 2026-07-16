@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatCurrency, POLICY_TYPE_LABELS } from "@/lib/utils";
-import { Plus, X, ChevronDown, ChevronRight, FileText, FileSpreadsheet } from "lucide-react";
+import { Plus, X, ChevronDown, ChevronRight, FileText, FileSpreadsheet, Star, Filter } from "lucide-react";
 
 const policyTypes = [
   { value: "all", label: "Bütün növlər" },
@@ -27,11 +27,15 @@ export default function AgentsPage() {
   const [allPolicies, setAllPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", address: "", vezife: "", filial: "", role: "agent", parent_agent_id: "", icbari: [] as string[], konullu: [] as string[] });
+  const [form, setForm] = useState({ name: "", email: "", password: "", address: "", vezife: "", filial: "", fin: "", sv: "", rating: 0, role: "agent", parent_agent_id: "", icbari: [] as string[], konullu: [] as string[] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [expandedAgent, setExpandedAgent] = useState<number | null>(null);
+  // Agent filtrləri
+  const [roleFilter, setRoleFilter] = useState<"all" | "agent" | "subagent">("all");
+  const [filialFilter, setFilialFilter] = useState("");
+  const [addressFilter, setAddressFilter] = useState("");
 
   const [loadError, setLoadError] = useState("");
 
@@ -83,6 +87,9 @@ export default function AgentsPage() {
         address: form.address || undefined,
         vezife: form.vezife || undefined,
         filial: form.filial || undefined,
+        fin: form.fin || undefined,
+        sv: form.sv || undefined,
+        rating: form.rating || undefined,
       };
       if (form.role === "subagent") {
         if (!form.parent_agent_id) throw { response: { data: { message: "Subagent üçün valideyn agent seçin" } } };
@@ -104,7 +111,7 @@ export default function AgentsPage() {
         });
       }
       setShowForm(false);
-      setForm({ name: "", email: "", password: "", address: "", vezife: "", filial: "", role: "agent", parent_agent_id: "", icbari: [], konullu: [] });
+      setForm({ name: "", email: "", password: "", address: "", vezife: "", filial: "", fin: "", sv: "", rating: 0, role: "agent", parent_agent_id: "", icbari: [], konullu: [] });
       // Yaratdıqdan sonra Bonuslar səhifəsinə keç
       router.push("/bonuses");
     } catch (err: any) {
@@ -113,6 +120,34 @@ export default function AgentsPage() {
       setSaving(false);
     }
   };
+
+  // ── Filtr məntiqi ──
+  const matchesFilters = (u: any) => {
+    const f = filialFilter.trim().toLowerCase();
+    const a = addressFilter.trim().toLowerCase();
+    if (f && !(u.filial || "").toLowerCase().includes(f)) return false;
+    if (a && !(u.address || "").toLowerCase().includes(a)) return false;
+    return true;
+  };
+
+  const filteredAgents = agents.filter(agent => {
+    const subs = agent.subagents || [];
+    if (roleFilter === "agent") return matchesFilters(agent);
+    if (roleFilter === "subagent") return subs.some(matchesFilters);
+    return matchesFilters(agent) || subs.some(matchesFilters);
+  });
+
+  // Filial/nümayəndəlik seçimləri (mövcud dəyərlərdən)
+  const filialOptions = Array.from(
+    new Set(
+      [...agents, ...agents.flatMap((a: any) => a.subagents || [])]
+        .map((u: any) => u.filial)
+        .filter(Boolean)
+    )
+  ) as string[];
+
+  const clearFilters = () => { setRoleFilter("all"); setFilialFilter(""); setAddressFilter(""); };
+  const hasFilters = roleFilter !== "all" || filialFilter !== "" || addressFilter !== "";
 
   const handleToggleActive = async (agent: any) => {
     await authApi.updateAgent(agent.id, { is_active: !agent.is_active });
@@ -193,6 +228,35 @@ export default function AgentsPage() {
                     <Label>Filial və ya nümayəndəlik</Label>
                     <Input value={form.filial} onChange={e => setForm(f => ({ ...f, filial: e.target.value }))} placeholder="Filial və ya nümayəndəlik" />
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>FİN</Label>
+                      <Input value={form.fin} onChange={e => setForm(f => ({ ...f, fin: e.target.value.toUpperCase() }))} placeholder="məs. 5AB1C2D" maxLength={20} className="uppercase" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ş/V nömrəsi</Label>
+                      <Input value={form.sv} onChange={e => setForm(f => ({ ...f, sv: e.target.value.toUpperCase() }))} placeholder="məs. AZE12345678" maxLength={50} className="uppercase" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fəaliyyət qiymətləndirməsi (ulduz)</Label>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map(n => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, rating: f.rating === n ? 0 : n }))}
+                          className="p-0.5 transition-transform hover:scale-110"
+                          title={`${n} ulduz`}
+                        >
+                          <Star size={22} className={n <= form.rating ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
+                        </button>
+                      ))}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {form.rating ? `${form.rating}/5` : "qiymətləndirilməyib"}
+                      </span>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <Label>Email *</Label>
                     <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
@@ -248,6 +312,55 @@ export default function AgentsPage() {
         </Card>
       )}
 
+      {/* Agent filtrləri */}
+      <Card>
+        <CardContent className="pt-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Filter size={15} /> Filtr
+            {hasFilters && (
+              <button onClick={clearFilters} className="ml-auto text-xs text-red-600 hover:underline">Təmizlə</button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-end gap-4">
+            {/* Rol */}
+            <div className="space-y-1">
+              <Label className="text-xs">Növ</Label>
+              <div className="flex gap-1.5">
+                {([["all", "Hamısı"], ["agent", "Agent"], ["subagent", "Subagent"]] as const).map(([v, l]) => (
+                  <button
+                    key={v}
+                    onClick={() => setRoleFilter(v)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                      roleFilter === v ? "bg-primary text-primary-foreground border-primary" : "bg-white text-slate-600 border-slate-200 hover:border-primary/40"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Filial / nümayəndəlik */}
+            <div className="space-y-1">
+              <Label className="text-xs">Filial / nümayəndəlik</Label>
+              <select
+                value={filialFilter}
+                onChange={e => setFilialFilter(e.target.value)}
+                className="flex h-9 w-56 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">— Hamısı —</option>
+                {filialOptions.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            {/* Ünvan */}
+            <div className="space-y-1">
+              <Label className="text-xs">Ünvan</Label>
+              <Input value={addressFilter} onChange={e => setAddressFilter(e.target.value)} placeholder="Ünvana görə axtar" className="h-9 w-52" />
+            </div>
+            <span className="text-xs text-muted-foreground pb-2">{filteredAgents.length} nəticə</span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Sığorta növü filtri */}
       <Card>
         <CardContent className="pt-4">
@@ -275,7 +388,7 @@ export default function AgentsPage() {
         <div className="flex justify-center py-12"><div className="animate-spin h-8 w-8 rounded-full border-4 border-primary border-t-transparent" /></div>
       ) : (
         <div className="space-y-3">
-          {agents.map(agent => {
+          {filteredAgents.map(agent => {
             const agentPolicies = getAgentPolicies(agent.id);
             const typeSummary = getTypeSummary(agent.id);
             const isExpanded = expandedAgent === agent.id;
@@ -298,6 +411,14 @@ export default function AgentsPage() {
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${agent.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
                           {agent.is_active ? "Aktiv" : "Deaktiv"}
                         </span>
+                        {/* Fəaliyyət ulduzları */}
+                        {agent.rating > 0 && (
+                          <span className="flex items-center gap-0.5" title={`${agent.rating}/5`}>
+                            {[1, 2, 3, 4, 5].map(n => (
+                              <Star key={n} size={13} className={n <= agent.rating ? "fill-amber-400 text-amber-400" : "text-slate-200"} />
+                            ))}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">{agent.email}</p>
                       {(agent.vezife || agent.filial) && (
@@ -342,14 +463,14 @@ export default function AgentsPage() {
                   {/* Genişlənmiş sığorta cədvəli */}
                   {isExpanded && (
                     <div className="border-t">
-                      {/* Subagentlər */}
-                      {agent.subagents && agent.subagents.length > 0 && (
+                      {/* Subagentlər — rol filtri "agent" olanda gizlənir, digər filtrlərə görə süzülür */}
+                      {roleFilter !== "agent" && agent.subagents?.filter(matchesFilters).length > 0 && (
                         <div className="px-4 py-3 border-b bg-indigo-50/40">
                           <p className="text-xs font-semibold uppercase tracking-wider text-indigo-700 mb-2">
-                            Subagentlər ({agent.subagents.length})
+                            Subagentlər ({agent.subagents.filter(matchesFilters).length})
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {agent.subagents.map((s: any) => (
+                            {agent.subagents.filter(matchesFilters).map((s: any) => (
                               <div key={s.id} className="flex items-center gap-2 bg-white border border-indigo-200 rounded-lg px-3 py-1.5">
                                 <div className="w-6 h-6 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xs font-bold">
                                   {s.name.charAt(0)}
@@ -360,6 +481,13 @@ export default function AgentsPage() {
                                   {(s.vezife || s.filial) && (
                                     <span className="text-xs text-slate-500 ml-1.5">
                                       · {s.vezife}{s.vezife && s.filial ? " · " : ""}{s.filial}
+                                    </span>
+                                  )}
+                                  {s.rating > 0 && (
+                                    <span className="inline-flex items-center gap-0.5 ml-1.5 align-middle" title={`${s.rating}/5`}>
+                                      {[1, 2, 3, 4, 5].map(n => (
+                                        <Star key={n} size={10} className={n <= s.rating ? "fill-amber-400 text-amber-400" : "text-slate-200"} />
+                                      ))}
                                     </span>
                                   )}
                                 </div>
