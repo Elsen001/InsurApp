@@ -64,20 +64,31 @@ export function TopBar() {
     return () => clearInterval(t);
   }, [session, chatOpen, chatTab, peer]);
 
-  // chat açılanda / yeni mesajda aşağı sürüş + oxunmuş kimi işarələ
+  // chat açılanda aşağı sürüş + ümumi söhbəti oxunmuş kimi işarələ
+  // (yalnız ümumi görünüşdə — şəxsi yazışma ümumi sayğacı pozmasın)
   useEffect(() => {
     if (chatOpen) {
       if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-      if (messages.length) {
+      if (!peer && messages.length) {
         const maxId = Math.max(...messages.map(m => m.id));
         setChatLastSeen(maxId);
         localStorage.setItem("chat_last_seen", String(maxId));
       }
     }
-  }, [messages, chatOpen]);
+  }, [messages, chatOpen, peer]);
 
   const unread = announcements.filter(a => a.id > lastSeen).length;
-  const chatUnread = messages.filter(m => m.id > chatLastSeen && m.user_id !== userId).length;
+  // Chat açıq olanda oxunur → 0; yalnız ümumi (recipient_id yox) mesajlar sayılır
+  const chatUnread = chatOpen ? 0 : messages.filter(m => m.id > chatLastSeen && m.user_id !== userId && !m.recipient_id).length;
+
+  // Chat bağlananda şəxsi yazışmadan çıx və ümumi mesajları yüklə (sayğac üçün)
+  const closeChat = () => {
+    setChatOpen(false);
+    setPeer(null);
+    setChatTab("public");
+    setShowEmoji(false);
+    loadMessages();
+  };
 
   const toggleAnn = () => {
     const next = !annOpen;
@@ -241,7 +252,7 @@ export function TopBar() {
       {/* Chat slide-over */}
       {chatOpen && (
         <>
-          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setChatOpen(false)} />
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={closeChat} />
           <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-white z-50 shadow-2xl flex flex-col">
             {/* Başlıq */}
             <div className="flex items-center gap-2 px-4 py-3 border-b bg-gradient-to-r from-primary/10 to-transparent">
@@ -264,7 +275,7 @@ export function TopBar() {
                   <span className="font-semibold text-slate-800">Söhbət</span>
                 </>
               )}
-              <button onClick={() => setChatOpen(false)} className="ml-auto text-slate-400 hover:text-slate-600"><X size={18} /></button>
+              <button onClick={closeChat} className="ml-auto text-slate-400 hover:text-slate-600"><X size={18} /></button>
             </div>
 
             {/* Tablar */}

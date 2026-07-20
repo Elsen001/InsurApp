@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, ChevronDown, X, Check } from "lucide-react";
 import Link from "next/link";
+import { PRODUCT_LABELS } from "@/lib/products";
 
 // ── Sabit tiplər və məlumatlar ────────────────────────────────────────────────
 
@@ -570,6 +571,7 @@ export default function NewPolicyPage() {
       await policiesApi.create({
         insurance_group: insuranceGroup,
         insurance_sub_type: insuranceSubType,
+        product_label: PRODUCT_LABELS[insuranceSubType] || insuranceSubType,
         insurance_company: insuranceCompany,
         customer_name: customerName,
         customer_phone: customerPhone,
@@ -1160,7 +1162,7 @@ export default function NewPolicyPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground block">Sığorta məbləği</span>
-                    <span className="text-lg font-bold text-slate-800">{formatCurrency(details.insurance_amount || 0)} AZN</span>
+                    <span className="text-lg font-bold text-slate-800">{formatCurrency(details.insurance_amount || 0)}</span>
                   </div>
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground block">Franşiza</span>
@@ -1168,7 +1170,7 @@ export default function NewPolicyPage() {
                   </div>
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground block">Sığorta haqqı</span>
-                    <span className="text-lg font-bold text-primary">{formatCurrency(details.insurance_premium || 0)} AZN</span>
+                    <span className="text-lg font-bold text-primary">{formatCurrency(details.insurance_premium || 0)}</span>
                   </div>
                 </div>
 
@@ -2644,7 +2646,7 @@ export default function NewPolicyPage() {
                           <span className="text-xs text-slate-500">{isMonthly ? "Aylıq" : "İllik"}</span>
                           <div className="flex items-baseline gap-1">
                             <span className="text-4xl font-extrabold text-slate-900">{displayPrice}</span>
-                            <span className="text-lg font-semibold text-slate-600">₼{multi ? "-dan" : ""}</span>
+                            <span className="text-lg font-semibold text-slate-600">AZN{multi ? "-dan" : ""}</span>
                           </div>
                         </div>
 
@@ -2662,7 +2664,7 @@ export default function NewPolicyPage() {
                                 }}
                                 className={`flex-1 text-xs font-semibold py-1.5 px-1 rounded-md transition whitespace-nowrap ${o.cov === selCov ? "bg-primary text-primary-foreground shadow" : "text-slate-600 hover:bg-white"}`}
                               >
-                                {o.cov.toLocaleString()} ₼
+                                {o.cov.toLocaleString()} AZN
                               </button>
                             ))}
                           </div>

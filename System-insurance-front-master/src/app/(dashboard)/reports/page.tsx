@@ -4,6 +4,7 @@ import { reportsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { PRODUCT_GROUPS } from "@/lib/products";
 import { formatCurrency, downloadBlob } from "@/lib/utils";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -75,30 +76,49 @@ export default function ReportsPage() {
             <KpiCard label="Ödənilmiş komissiya" value={formatCurrency(summary.paid_commissions || 0)} green />
           </div>
 
-          {/* Növlərə görə bölgü */}
+          {/* Sığorta məhsulları üzrə bölgü — tam kataloq (məhsul yoxdursa da görünür) */}
           <Card>
-            <CardHeader><CardTitle>Sığorta Növləri üzrə Bölgü</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Sığorta növləri və məhsulları üzrə bölgü</CardTitle></CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm mb-6">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 font-semibold">Növ</th>
-                      <th className="text-right py-2 font-semibold">Sığorta sayı</th>
-                      <th className="text-right py-2 font-semibold">Ümumi məbləğ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summary.policies_by_type?.map((t: any) => (
-                      <tr key={t.type} className="border-b hover:bg-gray-50">
-                        <td className="py-2">{typeLabels[t.type] || t.type}</td>
-                        <td className="py-2 text-right">{t.count}</td>
-                        <td className="py-2 text-right font-medium">{formatCurrency(t.total || 0)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {(() => {
+                const stats: Record<string, { count: number; total: number }> = {};
+                (summary.policies_by_product || []).forEach((r: any) => {
+                  stats[r.product] = { count: Number(r.count) || 0, total: Number(r.total) || 0 };
+                });
+                return (
+                  <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-white z-10">
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="py-2 font-semibold">Məhsul</th>
+                          <th className="py-2 text-right font-semibold">Sığorta sayı</th>
+                          <th className="py-2 text-right font-semibold">Ümumi məbləğ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {PRODUCT_GROUPS.map(g => (
+                          <>
+                            <tr key={g.key} className="bg-slate-50">
+                              <td colSpan={3} className="py-1.5 px-1 text-xs font-semibold text-primary uppercase tracking-wide">{g.label}</td>
+                            </tr>
+                            {g.items.map(it => {
+                              const s = stats[it.value];
+                              const has = s && s.count > 0;
+                              return (
+                                <tr key={it.value} className={`border-b ${has ? "hover:bg-gray-50" : "text-slate-400"}`}>
+                                  <td className="py-1.5 pl-3">{it.label}</td>
+                                  <td className="py-1.5 text-right">{s?.count || 0}</td>
+                                  <td className="py-1.5 text-right font-medium">{formatCurrency(s?.total || 0)}</td>
+                                </tr>
+                              );
+                            })}
+                          </>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 

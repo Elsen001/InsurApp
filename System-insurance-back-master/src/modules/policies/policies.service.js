@@ -18,6 +18,8 @@ const getPolicies = async (user) => {
       'policies.id',
       'policies.agent_id',
       'policies.type',
+      'policies.product',
+      'policies.product_label',
       'policies.policy_number',
       'policies.customer_name',
       'policies.customer_phone',
@@ -50,6 +52,8 @@ const getPolicyById = async (id, user) => {
       'policies.id',
       'policies.agent_id',
       'policies.type',
+      'policies.product',
+      'policies.product_label',
       'policies.policy_number',
       'policies.customer_name',
       'policies.customer_phone',
@@ -80,17 +84,39 @@ const getPolicyById = async (id, user) => {
   return { ...policy, details: details?.details, payment, commission };
 };
 
-const createPolicy = async (data, user) => {
-  const { type, customer_name, customer_phone, customer_email, start_date, end_date, details, notes } = data;
+// Məhsul (sub-type) → ümumi tip (auto/casco/property/travel)
+const deriveType = (product, fallback) => {
+  const p = String(product || '').toLowerCase();
+  if (!p) return fallback || 'auto';
+  if (p.includes('kasko') || p.includes('casco')) return 'casco';
+  if (p.includes('sefer') || p.includes('səfər') || p.includes('travel') || p.includes('yasil_kart') || p.includes('yaşıl') || p.includes('ecnebi') || p.includes('səyahət')) return 'travel';
+  if (p.includes('emlak') || p.includes('əmlak') || p.includes('yuvam') || p.includes('ev_esyalari') || p.includes('daşınmaz') || p.includes('dasinmaz') || p.includes('dəimmis') || p.includes('deimmis') || p.includes('qonsu') || p.includes('parkinq') || p.includes('evrika')) return 'property';
+  return fallback || 'auto';
+};
 
-  const priceResult = await calculateWithRules(type, details);
-  const premiumAmount = priceResult.premium;
-  const commissionAmount = calculateCommission(premiumAmount, user.commission_rate);
+const createPolicy = async (data, user) => {
+  const {
+    type, customer_name, customer_phone, customer_email, start_date, end_date, details, notes,
+    insurance_sub_type, product_label,
+  } = data;
+
+  const product = insurance_sub_type || null;
+  const finalType = type || deriveType(product, 'auto');
+
+  const priceResult = await calculateWithRules(finalType, details);
+  // Qiymət mühərriki hesablaya bilməsə → formadakı final_premium/premium dəyərinə qayıt
+  let premiumAmount = Number(priceResult.premium);
+  if (!Number.isFinite(premiumAmount) || premiumAmount <= 0) {
+    premiumAmount = Number(details?.final_premium) || Number(details?.premium) || Number(details?.annual_premium) || 0;
+  }
+  const commissionAmount = Number(calculateCommission(premiumAmount, user.commission_rate)) || 0;
   const policyNumber = generatePolicyNumber();
 
   const policyData = {
     agent_id: user.id,
-    type,
+    type: finalType,
+    product,
+    product_label: product_label || null,
     policy_number: policyNumber,
     customer_name,
     customer_phone,

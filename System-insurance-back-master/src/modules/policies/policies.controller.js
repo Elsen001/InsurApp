@@ -2,7 +2,7 @@ const policiesService = require('./policies.service');
 const { z } = require('zod');
 
 const policySchema = z.object({
-  type: z.enum(['auto', 'casco', 'property', 'travel']),
+  type: z.enum(['auto', 'casco', 'property', 'travel']).optional(),
   customer_name: z.string().min(2, 'Müştəri adı tələb olunur'),
   customer_phone: z.string().optional(),
   customer_email: z.string().email().optional().or(z.literal('')),
@@ -10,6 +10,11 @@ const policySchema = z.object({
   end_date: z.string(),
   details: z.record(z.any()),
   notes: z.string().optional(),
+  // Konkret sığorta məhsulu
+  insurance_sub_type: z.string().optional(),
+  insurance_group: z.string().optional(),
+  insurance_company: z.string().optional(),
+  product_label: z.string().optional(),
 });
 
 const getAll = async (req, res) => {

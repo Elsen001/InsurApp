@@ -11,6 +11,12 @@ import {
 } from "@/lib/utils";
 import { Plus, Eye, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PRODUCT_GROUPS, PRODUCT_LABELS } from "@/lib/products";
+
+// Polisin məhsulu (yeni) və ya köhnə tipi
+const prodKey = (p: any) => p.product || p.type;
+const prodLabel = (p: any) =>
+  p.product_label || PRODUCT_LABELS[p.product] || POLICY_TYPE_LABELS[p.type] || p.type || "—";
 
 export default function PoliciesPage() {
   const { data: session } = useSession();
@@ -38,7 +44,7 @@ export default function PoliciesPage() {
         (p.agent_name || "").toLowerCase().includes(q)
       );
     }
-    if (typeFilter !== "all") data = data.filter(p => p.type === typeFilter);
+    if (typeFilter !== "all") data = data.filter(p => prodKey(p) === typeFilter);
     setFiltered(data);
   }, [search, typeFilter, policies]);
 
@@ -67,13 +73,14 @@ export default function PoliciesPage() {
             <select
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="h-10 min-w-[260px] rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="all">Bütün növlər</option>
-              <option value="auto">Avtomobil (MTPL)</option>
-              <option value="casco">Kasko</option>
-              <option value="property">Əmlak</option>
-              <option value="travel">Səfər</option>
+              <option value="all">Bütün məhsullar</option>
+              {PRODUCT_GROUPS.map(g => (
+                <optgroup key={g.key} label={g.label}>
+                  {g.items.map(it => <option key={it.value} value={it.value}>{it.label}</option>)}
+                </optgroup>
+              ))}
             </select>
           </div>
         </CardContent>
@@ -95,7 +102,7 @@ export default function PoliciesPage() {
                 <thead>
                   <tr className="border-b bg-gray-50">
                     <th className="text-left px-4 py-3 font-semibold">Sığorta №</th>
-                    <th className="text-left px-4 py-3 font-semibold">Növ</th>
+                    <th className="text-left px-4 py-3 font-semibold">Məhsul</th>
                     <th className="text-left px-4 py-3 font-semibold">Müştəri</th>
                     <th className="text-right px-4 py-3 font-semibold">Məbləğ</th>
                     <th className="text-left px-4 py-3 font-semibold">Tarix</th>
@@ -110,7 +117,7 @@ export default function PoliciesPage() {
                   {filtered.map(p => (
                     <tr key={p.id} className="border-b hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs font-medium">{p.policy_number}</td>
-                      <td className="px-4 py-3">{POLICY_TYPE_LABELS[p.type]}</td>
+                      <td className="px-4 py-3">{prodLabel(p)}</td>
                       <td className="px-4 py-3">{p.customer_name}</td>
                       <td className="px-4 py-3 text-right font-medium">{formatCurrency(p.premium_amount)}</td>
                       <td className="px-4 py-3 text-xs">{formatDate(p.start_date)} — {formatDate(p.end_date)}</td>

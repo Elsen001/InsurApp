@@ -31,6 +31,15 @@ const getSummary = async (filters = {}) => {
     .sum('premium_amount as total')
     .groupBy('type');
 
+  // Konkret sığorta məhsulu üzrə bölgü
+  const policiesByProduct = await applyDates(db('policies')
+    .whereIn('status', ['active', 'expired'])
+    .whereNotNull('product'), filters)
+    .select('product', 'product_label')
+    .count('* as count')
+    .sum('premium_amount as total')
+    .groupBy('product', 'product_label');
+
   // BUG DÜZƏLİŞİ: Agent stats — policies və commissions ayrı-ayrı subquery ilə
   // əvvəlki double LEFT JOIN Cartesian product yaradırdı (agent 3 policy × 3 commission = 9 sətir)
   const agents = await db('users').where({ role: 'agent' }).select('id', 'name', 'commission_rate');
@@ -62,6 +71,7 @@ const getSummary = async (filters = {}) => {
     total_commissions: totalCommissions.total || 0,
     paid_commissions: paidCommissions.total || 0,
     policies_by_type: policiesByType,
+    policies_by_product: policiesByProduct,
     agent_stats: agentStats,
   };
 };

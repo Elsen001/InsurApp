@@ -7,15 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatCurrency, POLICY_TYPE_LABELS } from "@/lib/utils";
-import { Plus, X, ChevronDown, ChevronRight, FileText, FileSpreadsheet, Star, Filter } from "lucide-react";
+import { PRODUCT_GROUPS, PRODUCT_LABELS } from "@/lib/products";
 
-const policyTypes = [
-  { value: "all", label: "Bütün növlər" },
-  { value: "auto", label: "Avtomobil (MTPL)" },
-  { value: "casco", label: "Kasko" },
-  { value: "property", label: "Əmlak" },
-  { value: "travel", label: "Səfər" },
-];
+// Polisin məhsulu (yeni) və ya köhnə tipi
+const prodKey = (p: any) => p.product || p.type;
+const prodLabel = (p: any) =>
+  p.product_label || PRODUCT_LABELS[p.product] || POLICY_TYPE_LABELS[p.type] || p.type || "—";
+const keyLabel = (k: string) => PRODUCT_LABELS[k] || POLICY_TYPE_LABELS[k] || k;
+import { Plus, X, ChevronDown, ChevronRight, FileText, FileSpreadsheet, Star, Filter } from "lucide-react";
 
 // İcbari və Könüllü şirkət seçimləri
 const ICBARI_COMPANIES = ["Atəşgah", "Paşa", "Mega", "Qala", "Xalq"];
@@ -61,18 +60,19 @@ export default function AgentsPage() {
   // Hər agent üçün filtrlənmiş sığortaları hesabla
   const getAgentPolicies = (agentId: number) => {
     let policies = allPolicies.filter((p: any) => p.agent_id === agentId);
-    if (typeFilter !== "all") policies = policies.filter((p: any) => p.type === typeFilter);
+    if (typeFilter !== "all") policies = policies.filter((p: any) => prodKey(p) === typeFilter);
     return policies;
   };
 
-  // Növ üzrə breakdown
+  // Məhsul üzrə breakdown
   const getTypeSummary = (agentId: number) => {
     const policies = allPolicies.filter((p: any) => p.agent_id === agentId);
     const summary: Record<string, { count: number; total: number }> = {};
     policies.forEach((p: any) => {
-      if (!summary[p.type]) summary[p.type] = { count: 0, total: 0 };
-      summary[p.type].count++;
-      summary[p.type].total += Number(p.premium_amount);
+      const k = prodKey(p);
+      if (!summary[k]) summary[k] = { count: 0, total: 0 };
+      summary[k].count++;
+      summary[k].total += Number(p.premium_amount);
     });
     return summary;
   };
@@ -137,14 +137,10 @@ export default function AgentsPage() {
     return matchesFilters(agent) || subs.some(matchesFilters);
   });
 
-  // Filial/nümayəndəlik seçimləri (mövcud dəyərlərdən)
-  const filialOptions = Array.from(
-    new Set(
-      [...agents, ...agents.flatMap((a: any) => a.subagents || [])]
-        .map((u: any) => u.filial)
-        .filter(Boolean)
-    )
-  ) as string[];
+  // Filial və ünvan seçimləri (mövcud dəyərlərdən)
+  const allStaff = [...agents, ...agents.flatMap((a: any) => a.subagents || [])];
+  const filialOptions = Array.from(new Set(allStaff.map((u: any) => u.filial).filter(Boolean))) as string[];
+  const addressOptions = Array.from(new Set(allStaff.map((u: any) => u.address).filter(Boolean))) as string[];
 
   const clearFilters = () => { setRoleFilter("all"); setFilialFilter(""); setAddressFilter(""); };
   const hasFilters = roleFilter !== "all" || filialFilter !== "" || addressFilter !== "";
@@ -354,31 +350,40 @@ export default function AgentsPage() {
             {/* Ünvan */}
             <div className="space-y-1">
               <Label className="text-xs">Ünvan</Label>
-              <Input value={addressFilter} onChange={e => setAddressFilter(e.target.value)} placeholder="Ünvana görə axtar" className="h-9 w-52" />
+              <select
+                value={addressFilter}
+                onChange={e => setAddressFilter(e.target.value)}
+                className="flex h-9 w-52 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">— Hamısı —</option>
+                {addressOptions.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
             </div>
             <span className="text-xs text-muted-foreground pb-2">{filteredAgents.length} nəticə</span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Sığorta növü filtri */}
+      {/* Sığorta məhsuluna görə filtr */}
       <Card>
         <CardContent className="pt-4">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium text-muted-foreground">Sığorta növünə görə filtr:</span>
-            {policyTypes.map(t => (
-              <button
-                key={t.value}
-                onClick={() => setTypeFilter(t.value)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                  typeFilter === t.value
-                    ? "bg-primary text-white border-primary"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+            <span className="text-sm font-medium text-muted-foreground">Sığorta məhsuluna görə filtr:</span>
+            <select
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value)}
+              className="flex h-9 min-w-[280px] rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="all">Bütün məhsullar</option>
+              {PRODUCT_GROUPS.map(g => (
+                <optgroup key={g.key} label={g.label}>
+                  {g.items.map(it => <option key={it.value} value={it.value}>{it.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+            {typeFilter !== "all" && (
+              <button onClick={() => setTypeFilter("all")} className="text-xs text-red-600 hover:underline">Təmizlə</button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -441,7 +446,7 @@ export default function AgentsPage() {
                               : "bg-gray-50 text-gray-400 border-gray-200 opacity-50"
                           }`}
                         >
-                          {POLICY_TYPE_LABELS[type]}: {data.count}
+                          {keyLabel(type)}: {data.count}
                         </span>
                       ))}
                     </div>
@@ -508,7 +513,7 @@ export default function AgentsPage() {
                       <div className="px-4 py-3 bg-gray-50 flex gap-4 flex-wrap border-b">
                         {Object.entries(typeSummary).map(([type, data]: any) => (
                           <div key={type} className="text-sm">
-                            <span className="font-medium">{POLICY_TYPE_LABELS[type]}:</span>{" "}
+                            <span className="font-medium">{keyLabel(type)}:</span>{" "}
                             <span>{data.count} sığorta</span>{" "}
                             <span className="text-muted-foreground">({formatCurrency(data.total)})</span>
                           </div>
@@ -521,7 +526,7 @@ export default function AgentsPage() {
                       {agentPolicies.length === 0 ? (
                         <div className="text-center py-6 text-muted-foreground text-sm">
                           {typeFilter !== "all"
-                            ? `Bu agent üçün "${policyTypes.find(t => t.value === typeFilter)?.label}" növündə sığorta tapılmadı`
+                            ? `Bu agent üçün "${keyLabel(typeFilter)}" məhsulunda sığorta tapılmadı`
                             : "Bu agentin sığortası yoxdur"}
                         </div>
                       ) : (
@@ -541,7 +546,7 @@ export default function AgentsPage() {
                               {agentPolicies.map((p: any) => (
                                 <tr key={p.id} className="border-b hover:bg-gray-50">
                                   <td className="px-4 py-2 font-mono text-xs">{p.policy_number}</td>
-                                  <td className="px-4 py-2">{POLICY_TYPE_LABELS[p.type]}</td>
+                                  <td className="px-4 py-2">{prodLabel(p)}</td>
                                   <td className="px-4 py-2">{p.customer_name}</td>
                                   <td className="px-4 py-2 text-right font-medium">{formatCurrency(p.premium_amount)}</td>
                                   <td className="px-4 py-2 text-xs text-muted-foreground">{formatDate(p.start_date)}</td>

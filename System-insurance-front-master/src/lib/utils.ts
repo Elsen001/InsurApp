@@ -36,8 +36,9 @@ export const POLICY_STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-100 text-red-800",
 };
 
+// Məbləğdən sonra "AZN" yazılır: "1.234,56 AZN"
 export const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat("az-AZ", { style: "currency", currency: "AZN", minimumFractionDigits: 2 }).format(amount);
+  `${new Intl.NumberFormat("az-AZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount) || 0)} AZN`;
 
 export const formatDate = (date: string | Date) =>
   new Date(date).toLocaleDateString("az-AZ", { day: "2-digit", month: "2-digit", year: "numeric" });
