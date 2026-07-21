@@ -11,6 +11,7 @@ router.get('/my/export', authenticate, ctrl.exportMyData);
 // Aşağıdakılar yalnız admin
 router.use(authenticate, requireAdmin);
 
+router.get('/agents/export', ctrl.exportAgentsList);
 router.get('/summary', ctrl.getSummary);
 router.get('/agent/:id', ctrl.getAgentReport);
 router.get('/agent/:id/export', ctrl.exportAgentData);

@@ -8,6 +8,13 @@ router.post('/login', ctrl.login);
 router.post('/logout', authenticate, ctrl.logout);
 router.get('/me', authenticate, ctrl.getMe);
 
+// Şifrə bərpası — açıq (login-siz)
+router.post('/password-reset/request', ctrl.requestReset);
+router.post('/password-reset/complete', ctrl.completeReset);
+// Şifrə bərpası — admin idarəetməsi
+router.get('/password-reset/requests', authenticate, requireAdmin, ctrl.listResetRequests);
+router.put('/password-reset/:id', authenticate, requireAdmin, ctrl.resolveReset);
+
 // Agent / subagent idarəetməsi (yalnız admin)
 router.get('/agents', authenticate, requireAdmin, ctrl.getAgents);
 router.get('/staff', authenticate, requireAdmin, ctrl.getStaff);

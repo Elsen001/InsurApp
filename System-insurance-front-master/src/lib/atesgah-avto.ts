@@ -56,7 +56,7 @@ const FIZIKI_MINIK: Record<VehicleCategory, Record<string, Row>> = {
     "4001-4500": { p: 100, k: 0 },
     "4501-5000": { p: 100, k: 0 },
     "5000+": { p: 100, k: 0 },
-    elektro: { p: 120, k: 0 },
+    elektro: { p: 115, k: 0 },
   },
   vaz_lada: {
     // PDF-də yalnız 0–2000 sm³ verilib
@@ -128,15 +128,6 @@ export const QADAGAN_VEHICLES: { brand: string; model: string }[] = [
   { brand: "KAYİ", model: "bütün modellər" },
 ];
 
-// YÜK sətirləri — faizlər admin tərəfindən yazılır (default 0)
-export const YUK_ROWS: { id: string; label: string; note?: string }[] = [
-  { id: "y_elektro", label: "Elektromobil", note: "Tesla, Zeekr, Chevrolet, Dazun, DongFeng, Toyota, MG — QADAĞA" },
-  { id: "y_0_3500", label: "0–3500 kg", note: "Mercedes, Chevrolet, Dacia, Ford Tranzit — QADAĞA" },
-  { id: "y_3501_7000", label: "3501–7000 kq", note: "ÜMUMİ QADAĞA" },
-  { id: "y_7000", label: "7000 kg-dan yuxarı" },
-  { id: "y_qosqu", label: "Qoşqu", note: "Dartıcısız QADAĞA" },
-  { id: "y_agir", label: "Ağır, Xüsusi təyinatlı" },
-];
 
 export function bandForCc(cc: number): string | null {
   const b = ENGINE_BANDS.find((x) => cc >= x.min && cc <= x.max);
@@ -234,6 +225,12 @@ export const REGION_CATEGORIES = [
   { key: "3501-7000", label: "3501–7000" },
   { key: ">7001", label: "> 7001" },
 ] as const;
+
+// Region üzrə limit sığorta haqqı (sabit). Komissiyalar manuel təyin olunur (default boş).
+export const REGION_LIMITS: Record<RegionKey, Record<string, number>> = {
+  region: { "0-3500": 135, "3501-7000": 215, ">7001": 165 },
+  baki: { "0-3500": 165, "3501-7000": 240, ">7001": 200 },
+};
 
 const REGION_PRICING: Record<RegionKey, Record<string, { limit: number; below: number; above: number }>> = {
   region: {

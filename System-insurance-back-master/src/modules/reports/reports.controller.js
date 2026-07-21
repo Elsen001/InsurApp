@@ -102,4 +102,27 @@ const exportAgentData = async (req, res) => {
   }
 };
 
-module.exports = { getSummary, getAgentReport, getMyReport, exportData, exportAgentData, exportMyData };
+// Bütün agentlər siyahısı export
+const exportAgentsList = async (req, res) => {
+  try {
+    const { format } = req.query;
+    if (format === 'excel') {
+      const workbook = await reportsService.exportAgentsExcel();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=agentler-${Date.now()}.xlsx`);
+      await workbook.xlsx.write(res);
+      res.end();
+    } else if (format === 'pdf') {
+      const pdfBuffer = await reportsService.exportAgentsPDF();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=agentler-${Date.now()}.pdf`);
+      res.send(pdfBuffer);
+    } else {
+      res.status(400).json({ success: false, message: 'format=excel və ya format=pdf olmalıdır' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getSummary, getAgentReport, getMyReport, exportData, exportAgentData, exportMyData, exportAgentsList };

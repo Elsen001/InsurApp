@@ -434,4 +434,120 @@ const exportAgentPDF = async (agentId) => {
   });
 };
 
-module.exports = { getSummary, getAgentReport, exportExcel, exportPDF, exportAgentExcel, exportAgentPDF };
+// ── Agentlər siyahısı (agent + subagent) export ──
+const getAgentsList = async () => {
+  const rows = await db('users')
+    .whereIn('users.role', ['agent', 'subagent'])
+    .leftJoin('users as parent', 'users.parent_agent_id', 'parent.id')
+    .select(
+      'users.id', 'users.name', 'users.role', 'users.email',
+      'users.vezife', 'users.filial', 'users.address', 'users.fin', 'users.sv',
+      'users.rating', 'users.is_active', 'parent.name as parent_name'
+    )
+    .orderBy('users.role', 'asc')
+    .orderBy('users.name', 'asc');
+  return rows;
+};
+
+const roleLabel = (r) => (r === 'subagent' ? 'Subagent' : 'Agent');
+
+const exportAgentsExcel = async () => {
+  const data = await getAgentsList();
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Insurance System';
+  workbook.created = new Date();
+  const sheet = workbook.addWorksheet('Agentlər');
+  sheet.columns = [
+    { header: 'Ad Soyad', key: 'name', width: 24 },
+    { header: 'Növ', key: 'role', width: 12 },
+    { header: 'Vəzifə', key: 'vezife', width: 20 },
+    { header: 'Filial/Nümayəndəlik', key: 'filial', width: 22 },
+    { header: 'Ünvan', key: 'address', width: 24 },
+    { header: 'FİN', key: 'fin', width: 14 },
+    { header: 'Ş/V', key: 'sv', width: 16 },
+    { header: 'Reytinq', key: 'rating', width: 10 },
+    { header: 'Email', key: 'email', width: 26 },
+    { header: 'Valideyn agent', key: 'parent_name', width: 22 },
+    { header: 'Status', key: 'is_active', width: 12 },
+  ];
+  sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+
+  data.forEach(a => {
+    sheet.addRow({
+      name: a.name,
+      role: roleLabel(a.role),
+      vezife: a.vezife || '—',
+      filial: a.filial || '—',
+      address: a.address || '—',
+      fin: a.fin || '—',
+      sv: a.sv || '—',
+      rating: a.rating ? `${a.rating}/5` : '—',
+      email: a.email,
+      parent_name: a.parent_name || '—',
+      is_active: a.is_active ? 'Aktiv' : 'Deaktiv',
+    });
+  });
+  return workbook;
+};
+
+const exportAgentsPDF = async () => {
+  const data = await getAgentsList();
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
+    const buffers = [];
+    doc.on('data', b => buffers.push(b));
+    doc.on('end', () => resolve(Buffer.concat(buffers)));
+    doc.on('error', reject);
+
+    doc.fontSize(18).text('Agentlər siyahısı', { align: 'center' });
+    doc.fontSize(10).text(`Tarix: ${new Date().toLocaleDateString('az-AZ')}  ·  Cəmi: ${data.length}`, { align: 'center' });
+    doc.moveDown(1);
+
+    // Sadə cədvəl
+    const cols = [
+      { key: 'name', label: 'Ad', w: 110 },
+      { key: 'role', label: 'Növ', w: 55 },
+      { key: 'vezife', label: 'Vəzifə', w: 90 },
+      { key: 'filial', label: 'Filial', w: 100 },
+      { key: 'fin', label: 'FİN', w: 70 },
+      { key: 'sv', label: 'Ş/V', w: 80 },
+      { key: 'rating', label: 'Reytinq', w: 50 },
+      { key: 'email', label: 'Email', w: 130 },
+    ];
+    const startX = 40;
+    let y = doc.y;
+    const rowH = 18;
+
+    const drawHeader = () => {
+      doc.fontSize(9).font('Helvetica-Bold');
+      let x = startX;
+      cols.forEach(c => { doc.text(c.label, x + 2, y + 4, { width: c.w - 4 }); x += c.w; });
+      doc.moveTo(startX, y + rowH).lineTo(startX + cols.reduce((s, c) => s + c.w, 0), y + rowH).stroke();
+      y += rowH;
+      doc.font('Helvetica');
+    };
+    drawHeader();
+
+    data.forEach(a => {
+      if (y > 520) { doc.addPage(); y = 40; drawHeader(); }
+      const vals = {
+        name: a.name, role: roleLabel(a.role), vezife: a.vezife || '—',
+        filial: a.filial || '—', fin: a.fin || '—', sv: a.sv || '—',
+        rating: a.rating ? `${a.rating}/5` : '—', email: a.email,
+      };
+      let x = startX;
+      doc.fontSize(8);
+      cols.forEach(c => { doc.text(String(vals[c.key]), x + 2, y + 4, { width: c.w - 4, ellipsis: true, height: rowH - 4 }); x += c.w; });
+      doc.moveTo(startX, y + rowH).lineTo(startX + cols.reduce((s, c) => s + c.w, 0), y + rowH).strokeColor('#e5e7eb').stroke().strokeColor('#000');
+      y += rowH;
+    });
+
+    doc.end();
+  });
+};
+
+module.exports = {
+  getSummary, getAgentReport, exportExcel, exportPDF, exportAgentExcel, exportAgentPDF,
+  exportAgentsExcel, exportAgentsPDF,
+};

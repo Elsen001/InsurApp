@@ -35,6 +35,7 @@ export default function AgentsPage() {
   const [roleFilter, setRoleFilter] = useState<"all" | "agent" | "subagent">("all");
   const [filialFilter, setFilialFilter] = useState("");
   const [addressFilter, setAddressFilter] = useState("");
+  const [ratingFilter, setRatingFilter] = useState("all"); // "all" | "5".."1" | "0" (qiymətləndirilməyib)
 
   const [loadError, setLoadError] = useState("");
 
@@ -122,28 +123,49 @@ export default function AgentsPage() {
   };
 
   // ── Filtr məntiqi ──
-  const matchesFilters = (u: any) => {
+  // Ünvan/filial subagentdən "yuxarı qalxa" bilər, amma ulduz şəxsi xüsusiyyətdir → yalnız özünə tətbiq olunur
+  const matchesLocation = (u: any) => {
     const f = filialFilter.trim().toLowerCase();
     const a = addressFilter.trim().toLowerCase();
     if (f && !(u.filial || "").toLowerCase().includes(f)) return false;
     if (a && !(u.address || "").toLowerCase().includes(a)) return false;
     return true;
   };
+  const matchesRating = (u: any) =>
+    ratingFilter === "all" || (Number(u.rating) || 0) === Number(ratingFilter);
+  const matchesFilters = (u: any) => matchesLocation(u) && matchesRating(u);
+
+  // Ulduz təyini / dəyişməsi (yaratdıqdan sonra da)
+  const setRating = async (u: any, n: number) => {
+    const next = (Number(u.rating) || 0) === n ? 0 : n; // eyni ulduza təkrar klik → sıfırla
+    await authApi.updateAgent(u.id, { rating: next });
+    load();
+  };
 
   const filteredAgents = agents.filter(agent => {
     const subs = agent.subagents || [];
     if (roleFilter === "agent") return matchesFilters(agent);
     if (roleFilter === "subagent") return subs.some(matchesFilters);
-    return matchesFilters(agent) || subs.some(matchesFilters);
+    // "all": ulduz filtri agentin ÖZÜNƏ tətbiq olunur (subagentdən qalxmır);
+    // ünvan/filial isə subagentdən yuxarı qalxa bilər
+    return matchesRating(agent) && (matchesLocation(agent) || subs.some(matchesLocation));
   });
+
+  // Subagent filtri: subagentlər əsas kart kimi (valideyn agent adı ilə)
+  const subagentCards = agents.flatMap((a: any) =>
+    (a.subagents || []).filter(matchesFilters).map((s: any) => ({ ...s, role: "subagent", parent_name: a.name, subagents: [] }))
+  );
+
+  // Siyahıda göstəriləcək entitilər
+  const displayList = roleFilter === "subagent" ? subagentCards : filteredAgents;
 
   // Filial və ünvan seçimləri (mövcud dəyərlərdən)
   const allStaff = [...agents, ...agents.flatMap((a: any) => a.subagents || [])];
   const filialOptions = Array.from(new Set(allStaff.map((u: any) => u.filial).filter(Boolean))) as string[];
   const addressOptions = Array.from(new Set(allStaff.map((u: any) => u.address).filter(Boolean))) as string[];
 
-  const clearFilters = () => { setRoleFilter("all"); setFilialFilter(""); setAddressFilter(""); };
-  const hasFilters = roleFilter !== "all" || filialFilter !== "" || addressFilter !== "";
+  const clearFilters = () => { setRoleFilter("all"); setFilialFilter(""); setAddressFilter(""); setRatingFilter("all"); };
+  const hasFilters = roleFilter !== "all" || filialFilter !== "" || addressFilter !== "" || ratingFilter !== "all";
 
   const handleToggleActive = async (agent: any) => {
     await authApi.updateAgent(agent.id, { is_active: !agent.is_active });
@@ -152,11 +174,29 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-slate-900">Agentlər</h1>
-        <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? <><X size={16} className="mr-2" />Bağla</> : <><Plus size={16} className="mr-2" />Yeni Agent</>}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={async () => {
+            const res = await reportsApi.exportAgentsExcel();
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement("a"); a.href = url; a.download = "agentler.xlsx"; a.click();
+            window.URL.revokeObjectURL(url);
+          }}>
+            <FileSpreadsheet size={15} className="mr-1" />Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={async () => {
+            const res = await reportsApi.exportAgentsPDF();
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement("a"); a.href = url; a.download = "agentler.pdf"; a.click();
+            window.URL.revokeObjectURL(url);
+          }}>
+            <FileText size={15} className="mr-1" />PDF
+          </Button>
+          <Button onClick={() => setShowForm(!showForm)}>
+            {showForm ? <><X size={16} className="mr-2" />Bağla</> : <><Plus size={16} className="mr-2" />Yeni Agent</>}
+          </Button>
+        </div>
       </div>
 
       {loadError && (
@@ -359,7 +399,24 @@ export default function AgentsPage() {
                 {addressOptions.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
-            <span className="text-xs text-muted-foreground pb-2">{filteredAgents.length} nəticə</span>
+            {/* Fəaliyyət qiymətləndirməsi (ulduz) */}
+            <div className="space-y-1">
+              <Label className="text-xs">Fəaliyyət qiymətləndirməsi (ulduz)</Label>
+              <select
+                value={ratingFilter}
+                onChange={e => setRatingFilter(e.target.value)}
+                className="flex h-9 w-52 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="all">— Hamısı —</option>
+                <option value="5">★★★★★ (5)</option>
+                <option value="4">★★★★ (4)</option>
+                <option value="3">★★★ (3)</option>
+                <option value="2">★★ (2)</option>
+                <option value="1">★ (1)</option>
+                <option value="0">Qiymətləndirilməyib</option>
+              </select>
+            </div>
+            <span className="text-xs text-muted-foreground pb-2">{displayList.length} nəticə</span>
           </div>
         </CardContent>
       </Card>
@@ -393,11 +450,12 @@ export default function AgentsPage() {
         <div className="flex justify-center py-12"><div className="animate-spin h-8 w-8 rounded-full border-4 border-primary border-t-transparent" /></div>
       ) : (
         <div className="space-y-3">
-          {filteredAgents.map(agent => {
+          {displayList.map(agent => {
             const agentPolicies = getAgentPolicies(agent.id);
             const typeSummary = getTypeSummary(agent.id);
             const isExpanded = expandedAgent === agent.id;
             const totalPremium = agentPolicies.reduce((s: number, p: any) => s + Number(p.premium_amount), 0);
+            const totalCommission = agentPolicies.reduce((s: number, p: any) => s + Number(p.commission_amount || 0), 0);
 
             return (
               <Card key={agent.id}>
@@ -416,14 +474,24 @@ export default function AgentsPage() {
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${agent.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
                           {agent.is_active ? "Aktiv" : "Deaktiv"}
                         </span>
-                        {/* Fəaliyyət ulduzları */}
-                        {agent.rating > 0 && (
-                          <span className="flex items-center gap-0.5" title={`${agent.rating}/5`}>
-                            {[1, 2, 3, 4, 5].map(n => (
-                              <Star key={n} size={13} className={n <= agent.rating ? "fill-amber-400 text-amber-400" : "text-slate-200"} />
-                            ))}
-                          </span>
-                        )}
+                        {/* Fəaliyyət qiymətləndirməsi — kliklə təyin/dəyiş */}
+                        <span
+                          className="flex items-center gap-0.5"
+                          title={agent.rating > 0 ? `${agent.rating}/5 — dəyişmək üçün klikləyin` : "Qiymətləndirmək üçün ulduza klikləyin"}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {[1, 2, 3, 4, 5].map(n => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setRating(agent, n); }}
+                              className="p-0 hover:scale-110 transition-transform"
+                              title={`${n} ulduz`}
+                            >
+                              <Star size={14} className={n <= (agent.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-300"} />
+                            </button>
+                          ))}
+                        </span>
                       </div>
                       <p className="text-sm text-muted-foreground">{agent.email}</p>
                       {(agent.vezife || agent.filial) && (
@@ -451,13 +519,15 @@ export default function AgentsPage() {
                       ))}
                     </div>
 
-                    <div className="text-right ml-4">
-                      <p className="font-semibold text-sm">{agentPolicies.length} sığorta</p>
-                      <p className="text-xs text-muted-foreground">{formatCurrency(totalPremium)}</p>
-                      <p className="text-xs text-muted-foreground">Komissiya: {agent.commission_rate}%</p>
-                      {agent.subagents && agent.subagents.length > 0 && (
+                    <div className="text-left ml-4 min-w-[180px] space-y-0.5">
+                      <p className="text-xs"><span className="text-muted-foreground">Sığorta sayı:</span> <span className="font-semibold text-slate-800">{agentPolicies.length}</span></p>
+                      <p className="text-xs"><span className="text-muted-foreground">Sığorta haqqı:</span> <span className="text-base font-bold text-slate-800">{formatCurrency(totalPremium)}</span></p>
+                      <p className="text-xs"><span className="text-muted-foreground">Komissiya (azn):</span> <span className="font-semibold text-emerald-700">{formatCurrency(totalCommission)}</span></p>
+                      {agent.role === "subagent" ? (
+                        <p className="text-xs text-indigo-600 font-medium">Agent: {agent.parent_name}</p>
+                      ) : agent.subagents && agent.subagents.length > 0 ? (
                         <p className="text-xs text-indigo-600 font-medium">{agent.subagents.length} subagent</p>
-                      )}
+                      ) : null}
                     </div>
 
                     <button className="ml-2 text-muted-foreground">
@@ -488,13 +558,23 @@ export default function AgentsPage() {
                                       · {s.vezife}{s.vezife && s.filial ? " · " : ""}{s.filial}
                                     </span>
                                   )}
-                                  {s.rating > 0 && (
-                                    <span className="inline-flex items-center gap-0.5 ml-1.5 align-middle" title={`${s.rating}/5`}>
-                                      {[1, 2, 3, 4, 5].map(n => (
-                                        <Star key={n} size={10} className={n <= s.rating ? "fill-amber-400 text-amber-400" : "text-slate-200"} />
-                                      ))}
-                                    </span>
-                                  )}
+                                  <span
+                                    className="inline-flex items-center gap-0.5 ml-1.5 align-middle"
+                                    title={s.rating > 0 ? `${s.rating}/5 — dəyişmək üçün klikləyin` : "Qiymətləndirmək üçün ulduza klikləyin"}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {[1, 2, 3, 4, 5].map(n => (
+                                      <button
+                                        key={n}
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setRating(s, n); }}
+                                        className="p-0 hover:scale-110 transition-transform"
+                                        title={`${n} ulduz`}
+                                      >
+                                        <Star size={12} className={n <= (s.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-300"} />
+                                      </button>
+                                    ))}
+                                  </span>
                                 </div>
                                 <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium ${s.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                                   {s.is_active ? "Aktiv" : "Deaktiv"}
@@ -526,8 +606,8 @@ export default function AgentsPage() {
                       {agentPolicies.length === 0 ? (
                         <div className="text-center py-6 text-muted-foreground text-sm">
                           {typeFilter !== "all"
-                            ? `Bu agent üçün "${keyLabel(typeFilter)}" məhsulunda sığorta tapılmadı`
-                            : "Bu agentin sığortası yoxdur"}
+                            ? `Bu ${agent.role === "subagent" ? "subagent" : "agent"} üçün "${keyLabel(typeFilter)}" məhsulunda sığorta tapılmadı`
+                            : `Bu ${agent.role === "subagent" ? "subagentin" : "agentin"} sığortası yoxdur`}
                         </div>
                       ) : (
                         <div className="overflow-x-auto">

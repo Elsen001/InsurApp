@@ -32,6 +32,12 @@ export function DateRangeFilter({ from, to, setFrom, setTo, onApply }: Props) {
       from: fmt(new Date(today.getFullYear(), 0, 1)),
       to: fmt(today),
     },
+    {
+      // Son 365 gün (bugündən geriyə tam 1 il)
+      label: "1 il",
+      from: fmt(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 364)),
+      to: fmt(today),
+    },
   ];
 
   const applyPreset = (f: string, t: string) => {

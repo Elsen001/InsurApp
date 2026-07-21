@@ -86,4 +86,54 @@ const updateAgent = async (req, res) => {
   }
 };
 
-module.exports = { login, logout, getMe, getAgents, getStaff, createAgent, updateAgent };
+// ============ Şifrə bərpası ============
+const requestReset = async (req, res) => {
+  try {
+    const schema = z.object({ email: z.string().email('Düzgün email daxil edin') });
+    const { email } = schema.parse(req.body);
+    const result = await authService.requestPasswordReset(email);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    if (err.name === 'ZodError') return res.status(400).json({ success: false, message: err.errors[0].message });
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+const completeReset = async (req, res) => {
+  try {
+    const schema = z.object({
+      email: z.string().email('Düzgün email daxil edin'),
+      password: z.string().min(6, 'Şifrə ən az 6 simvol olmalıdır'),
+    });
+    const { email, password } = schema.parse(req.body);
+    await authService.completePasswordReset(email, password);
+    res.json({ success: true, message: 'Şifrə uğurla dəyişdirildi' });
+  } catch (err) {
+    if (err.name === 'ZodError') return res.status(400).json({ success: false, message: err.errors[0].message });
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+const listResetRequests = async (req, res) => {
+  try {
+    const requests = await authService.listResetRequests();
+    res.json({ success: true, requests });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const resolveReset = async (req, res) => {
+  try {
+    const action = req.body.action === 'approve' ? 'approve' : 'reject';
+    const result = await authService.resolveReset(req.params.id, action);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = {
+  login, logout, getMe, getAgents, getStaff, createAgent, updateAgent,
+  requestReset, completeReset, listResetRequests, resolveReset,
+};

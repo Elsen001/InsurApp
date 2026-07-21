@@ -9,6 +9,7 @@ export type PashaRow = {
   dqn?: string;         // region / DQN şərti
   year?: string;        // buraxılış ili şərti
   note?: string;        // xüsusi qeyd / markalar / QADAĞA
+  premium?: number;     // sığorta haqqı (AZN) — Paşa datasında verilməyibsə boş
   commission: number;   // komissiya %
 };
 

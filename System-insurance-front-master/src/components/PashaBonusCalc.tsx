@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Building2, ChevronDown } from "lucide-react";
-import { RegionCommission } from "@/components/RegionCommission";
 import { PASHA_ROWS, PASHA_BRANDS } from "@/lib/pasha-avto";
 
 type Props = {
@@ -80,13 +79,14 @@ export function PashaBonusCalc({ onPick }: Props) {
           {/* Cədvəl: Sətir | Faiz (%) — Atəşgahdakı ilə eyni format */}
           <div className="space-y-1">
             <div className="flex items-center gap-3 px-2 pb-1 text-xs font-semibold text-muted-foreground border-b">
-              <span className="flex-1">Sətir</span>
+              <span className="flex-1">{vehicleType === "minik" ? "Mühərrik" : "Sətir"}</span>
+              <span className="w-24 text-right">Sığorta haqqı</span>
               <span className="w-24 text-center">Faiz (%)</span>
             </div>
             {rows.map((r) => {
-              const pctVal = rowPercents[r.id] ?? "0";
+              const pctVal = rowPercents[r.id] ?? "";
               return (
-                <div key={r.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-slate-50">
+                <div key={r.id} className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-slate-50">
                   <span className="flex-1 min-w-0">
                     <span className="text-sm text-slate-800 font-medium">{r.label}</span>
                     <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
@@ -97,10 +97,14 @@ export function PashaBonusCalc({ onPick }: Props) {
                       <span className={`block text-[11px] ${r.note.includes("QADAĞA") ? "text-red-600" : "text-slate-500"}`}>{r.note}</span>
                     )}
                   </span>
+                  <span className="w-24 text-right text-sm font-medium text-slate-800 shrink-0">
+                    {r.premium != null ? `${r.premium} AZN` : "—"}
+                  </span>
                   <div className="relative w-24 shrink-0">
                     <Input
                       type="text" inputMode="numeric" maxLength={2}
                       value={pctVal}
+                      placeholder="0"
                       onChange={(e) => setRowPercents((p) => ({ ...p, [r.id]: clampPct(e.target.value) }))}
                       className="pr-6 text-right h-8"
                     />
@@ -113,9 +117,6 @@ export function PashaBonusCalc({ onPick }: Props) {
           <p className="text-[11px] text-muted-foreground">Faizi hər sətir üçün özünüz yazın.</p>
         </div>
       )}
-
-      {/* ── Region üzrə komissiya (Atəşgahdakı ilə eyni) ── */}
-      <RegionCommission onPick={onPick} />
 
       {/* Marka istinadı */}
       <div className="border-t border-dashed pt-3">

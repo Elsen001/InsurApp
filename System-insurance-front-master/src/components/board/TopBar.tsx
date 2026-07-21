@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { boardApi } from "@/lib/api";
-import { Bell, MessageCircle, X, Send, Trash2, Megaphone, Smile, ArrowLeft } from "lucide-react";
+import { boardApi, authApi } from "@/lib/api";
+import { Bell, MessageCircle, X, Send, Trash2, Megaphone, Smile, ArrowLeft, KeyRound, Check } from "lucide-react";
 
 // Chat üçün emoji seçimi
 const EMOJIS = [
@@ -40,6 +40,7 @@ export function TopBar() {
   const [chatTab, setChatTab] = useState<"public" | "inbox">("public");
   const [peer, setPeer] = useState<any | null>(null); // seçilmiş şəxs (şəxsi yazışma)
   const [contacts, setContacts] = useState<any[]>([]);
+  const [resetRequests, setResetRequests] = useState<any[]>([]);
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,19 +51,27 @@ export function TopBar() {
   const loadAnnouncements = () => boardApi.getAnnouncements().then(r => setAnnouncements(r.data.announcements)).catch(() => {});
   const loadMessages = (p?: number) => boardApi.getMessages(p).then(r => setMessages(r.data.messages)).catch(() => {});
   const loadContacts = () => boardApi.getContacts().then(r => setContacts(r.data.contacts)).catch(() => {});
+  const loadResetRequests = () => authApi.getResetRequests().then(r => setResetRequests(r.data.requests)).catch(() => {});
 
   useEffect(() => {
     if (!session) return;
     loadAnnouncements();
     loadMessages(peer?.id);
+    if (isAdmin) loadResetRequests();
     if (chatOpen) loadContacts();
     const t = setInterval(() => {
       loadAnnouncements();
       loadMessages(peer?.id);
+      if (isAdmin) loadResetRequests();
       if (chatOpen && chatTab === "inbox") loadContacts();
     }, chatOpen ? 5000 : 15000);
     return () => clearInterval(t);
-  }, [session, chatOpen, chatTab, peer]);
+  }, [session, chatOpen, chatTab, peer, isAdmin]);
+
+  const resolveReset = async (id: number, action: "approve" | "reject") => {
+    await authApi.resolveResetRequest(id, action);
+    loadResetRequests();
+  };
 
   // chat açılanda aşağı sürüş + ümumi söhbəti oxunmuş kimi işarələ
   // (yalnız ümumi görünüşdə — şəxsi yazışma ümumi sayğacı pozmasın)
@@ -77,7 +86,8 @@ export function TopBar() {
     }
   }, [messages, chatOpen, peer]);
 
-  const unread = announcements.filter(a => a.id > lastSeen).length;
+  const pendingResets = resetRequests.filter(r => r.status === "pending").length;
+  const unread = announcements.filter(a => a.id > lastSeen).length + (isAdmin ? pendingResets : 0);
   // Chat açıq olanda oxunur → 0; yalnız ümumi (recipient_id yox) mesajlar sayılır
   const chatUnread = chatOpen ? 0 : messages.filter(m => m.id > chatLastSeen && m.user_id !== userId && !m.recipient_id).length;
 
@@ -212,6 +222,43 @@ export function TopBar() {
                       Paylaş
                     </button>
                   </form>
+                )}
+
+                {/* Admin: şifrə bərpası sorğuları */}
+                {isAdmin && pendingResets > 0 && (
+                  <div className="border-b bg-amber-50">
+                    <div className="flex items-center gap-1.5 px-4 pt-2.5 pb-1">
+                      <KeyRound size={14} className="text-amber-600" />
+                      <span className="text-xs font-semibold text-amber-800">Şifrə bərpası sorğuları</span>
+                    </div>
+                    {resetRequests.filter(r => r.status === "pending").map(r => (
+                      <div key={r.id} className="px-4 py-2.5 flex items-center gap-2">
+                        <span className="h-7 w-7 shrink-0 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">
+                          {(r.name || "?").charAt(0)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-800 truncate">
+                            {r.name} <span className="text-[10px] text-muted-foreground">({r.role === "subagent" ? "Subagent" : "Agent"})</span>
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate">{r.email} · {timeAgo(r.created_at)}</p>
+                        </div>
+                        <button
+                          onClick={() => resolveReset(r.id, "approve")}
+                          className="h-7 px-2 flex items-center gap-1 rounded-md bg-emerald-500 text-white text-[11px] font-medium hover:bg-emerald-600"
+                          title="Təsdiq et"
+                        >
+                          <Check size={13} /> Təsdiq
+                        </button>
+                        <button
+                          onClick={() => resolveReset(r.id, "reject")}
+                          className="h-7 px-2 flex items-center gap-1 rounded-md bg-slate-200 text-slate-600 text-[11px] font-medium hover:bg-red-100 hover:text-red-600"
+                          title="İmtina et"
+                        >
+                          <X size={13} /> İmtina
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
 
                 {/* Siyahı */}

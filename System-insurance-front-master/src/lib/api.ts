@@ -35,6 +35,13 @@ export const authApi = {
   createAgent: (data: any) => api.post("/api/auth/agents", data),
   createSubagent: (data: any) => api.post("/api/auth/agents", { ...data, role: "subagent" }),
   updateAgent: (id: number, data: any) => api.put(`/api/auth/agents/${id}`, data),
+  // Şifrə bərpası
+  requestPasswordReset: (email: string) => api.post("/api/auth/password-reset/request", { email }),
+  completePasswordReset: (email: string, password: string) =>
+    api.post("/api/auth/password-reset/complete", { email, password }),
+  getResetRequests: () => api.get("/api/auth/password-reset/requests"),
+  resolveResetRequest: (id: number, action: "approve" | "reject") =>
+    api.put(`/api/auth/password-reset/${id}`, { action }),
 };
 
 export const bonusesApi = {
@@ -72,6 +79,10 @@ export const reportsApi = {
     api.get(`/api/reports/agent/${id}/export`, { params: { format: "pdf" }, responseType: "blob" }),
   exportAgentExcel: (id: number) =>
     api.get(`/api/reports/agent/${id}/export`, { params: { format: "excel" }, responseType: "blob" }),
+  exportAgentsExcel: () =>
+    api.get("/api/reports/agents/export", { params: { format: "excel" }, responseType: "blob" }),
+  exportAgentsPDF: () =>
+    api.get("/api/reports/agents/export", { params: { format: "pdf" }, responseType: "blob" }),
   getMy: (filters?: any) => api.get("/api/reports/my", { params: filters }),
   exportMyPDF: () =>
     api.get(`/api/reports/my/export`, { params: { format: "pdf" }, responseType: "blob" }),

@@ -44,7 +44,7 @@ const getAgents = async () => {
     .orderBy('id', 'desc');
   const subs = await db('users')
     .where({ role: 'subagent' })
-    .select('id', 'name', 'email', 'commission_rate', 'is_active', 'parent_agent_id', 'created_at', 'address', 'vezife', 'filial', 'companies', 'fin', 'sv', 'rating')
+    .select('id', 'name', 'email', 'role', 'commission_rate', 'is_active', 'parent_agent_id', 'created_at', 'address', 'vezife', 'filial', 'companies', 'fin', 'sv', 'rating')
     .orderBy('created_at', 'desc')
     .orderBy('id', 'desc');
   return agents.map((a) => ({
@@ -96,14 +96,76 @@ const createAgent = async (data) => {
 };
 
 const updateAgent = async (id, data) => {
-  const { name, commission_rate, is_active, password } = data;
+  const { name, commission_rate, is_active, password, rating } = data;
   const update = {};
   if (name) update.name = name;
   if (commission_rate !== undefined) update.commission_rate = commission_rate;
   if (is_active !== undefined) update.is_active = is_active;
+  if (rating !== undefined) update.rating = Math.max(0, Math.min(5, Number(rating) || 0));
   if (password) update.password = await bcrypt.hash(password, 10);
   await db('users').where({ id }).update(update);
   return getMe(id);
 };
 
-module.exports = { login, getMe, getAgents, getStaff, createAgent, updateAgent };
+// ============ Şifrə bərpası (şifrəmi unutdum → admin təsdiqi → yeni şifrə) ============
+
+// Agent/subagent şifrə sorğusu göndərir. Təsdiqlənmiş açıq sorğu varsa dərhal xəbər verilir.
+const requestPasswordReset = async (email) => {
+  const user = await db('users').where({ email }).first();
+  if (!user) throw new Error('Bu email ilə istifadəçi tapılmadı');
+  if (user.role === 'admin') throw new Error('Admin şifrəsi bu yolla dəyişdirilmir');
+
+  // Artıq admin tərəfindən təsdiqlənmiş (istifadə olunmamış) sorğu varsa
+  const approved = await db('password_resets')
+    .where({ email, status: 'approved' })
+    .orderBy('id', 'desc')
+    .first();
+  if (approved) return { status: 'approved' };
+
+  // Gözləyən sorğu varsa təkrar yaratma
+  const pending = await db('password_resets')
+    .where({ email, status: 'pending' })
+    .first();
+  if (pending) return { status: 'pending' };
+
+  await db('password_resets').insert({ user_id: user.id, email, status: 'pending' });
+  return { status: 'pending' };
+};
+
+// Admin: sorğuların siyahısı (gözləyənlər əvvəldə)
+const listResetRequests = async () => {
+  return db('password_resets as pr')
+    .join('users as u', 'u.id', 'pr.user_id')
+    .whereIn('pr.status', ['pending', 'approved'])
+    .select('pr.id', 'pr.status', 'pr.email', 'pr.created_at', 'u.name', 'u.role')
+    .orderByRaw("FIELD(pr.status, 'pending', 'approved')")
+    .orderBy('pr.created_at', 'desc');
+};
+
+// Admin: təsdiq / imtina
+const resolveReset = async (id, action) => {
+  const req = await db('password_resets').where({ id }).first();
+  if (!req) throw new Error('Sorğu tapılmadı');
+  if (req.status !== 'pending') throw new Error('Bu sorğu artıq cavablandırılıb');
+  const status = action === 'approve' ? 'approved' : 'rejected';
+  await db('password_resets').where({ id }).update({ status, resolved_at: db.fn.now() });
+  return { id, status };
+};
+
+// Təsdiqlənmiş sorğu varsa yeni şifrə təyin edilir və sorğu bağlanır
+const completePasswordReset = async (email, newPassword) => {
+  const req = await db('password_resets')
+    .where({ email, status: 'approved' })
+    .orderBy('id', 'desc')
+    .first();
+  if (!req) throw new Error('Təsdiqlənmiş sorğu yoxdur. Əvvəlcə admin təsdiqini gözləyin');
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await db('users').where({ id: req.user_id }).update({ password: hashed });
+  await db('password_resets').where({ id: req.id }).update({ status: 'used', resolved_at: db.fn.now() });
+  return { success: true };
+};
+
+module.exports = {
+  login, getMe, getAgents, getStaff, createAgent, updateAgent,
+  requestPasswordReset, listResetRequests, resolveReset, completePasswordReset,
+};
