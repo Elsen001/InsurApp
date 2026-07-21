@@ -18,7 +18,10 @@ const getPayments = async (user, filters = {}) => {
       'payments.*',
       'policies.policy_number',
       'policies.type as policy_type',
+      'policies.product as policy_product',
+      'policies.product_label as policy_product_label',
       'policies.status as policy_status',
+      'policies.start_date as policy_start_date',
       'policies.customer_name',
       'users.name as agent_name',
       'users.id as agent_id'

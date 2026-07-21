@@ -13,9 +13,11 @@ export const POLICY_TYPE_LABELS: Record<string, string> = {
 };
 
 export const STATUS_LABELS: Record<string, string> = {
-  active: "Aktiv",
-  expired: "Bitmiş",
-  cancelled: "Ləğv edilmiş",
+  active: "Qüvvədədir",
+  upcoming: "Qüvvəyə minəcək",
+  expired: "Qüvvədən düşüb",
+  terminated: "Xitam verilib",
+  cancelled: "Ləğv olunub",
 };
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
@@ -32,7 +34,9 @@ export const PAYMENT_STATUS_COLORS: Record<string, string> = {
 
 export const POLICY_STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-800",
+  upcoming: "bg-blue-100 text-blue-800",
   expired: "bg-gray-100 text-gray-800",
+  terminated: "bg-orange-100 text-orange-800",
   cancelled: "bg-red-100 text-red-800",
 };
 

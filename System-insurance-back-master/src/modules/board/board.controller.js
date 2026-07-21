@@ -52,11 +52,18 @@ const getMessages = async (req, res) => {
 const postMessage = async (req, res) => {
   try {
     const schema = z.object({
-      body: z.string().min(1, 'Mesaj boş ola bilməz').max(1000),
+      body: z.string().max(1000).optional(),
       recipient_id: z.number().int().positive().optional(),
+      attachment: z.object({
+        url: z.string().min(1),      // base64 data URL
+        name: z.string().min(1).max(255),
+        type: z.string().max(100).optional(),
+      }).optional(),
+    }).refine((d) => (d.body && d.body.trim()) || d.attachment, {
+      message: 'Mesaj və ya fayl əlavə edin',
     });
-    const { body, recipient_id } = schema.parse(req.body);
-    const message = await boardService.postMessage(req.user.id, body, recipient_id || null);
+    const { body, recipient_id, attachment } = schema.parse(req.body);
+    const message = await boardService.postMessage(req.user.id, body || null, recipient_id || null, attachment || null);
     res.status(201).json({ success: true, message });
   } catch (err) {
     if (err.name === 'ZodError') return res.status(400).json({ success: false, message: err.errors[0].message });

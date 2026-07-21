@@ -97,8 +97,16 @@ export const boardApi = {
   deleteAnnouncement: (id: number) => api.delete(`/api/board/announcements/${id}`),
   // peer verilibsə şəxsi yazışma, yoxsa ümumi söhbət
   getMessages: (peer?: number) => api.get("/api/board/messages", { params: peer ? { peer } : {} }),
-  postMessage: (body: string, recipient_id?: number) =>
-    api.post("/api/board/messages", recipient_id ? { body, recipient_id } : { body }),
+  postMessage: (
+    body: string,
+    recipient_id?: number,
+    attachment?: { url: string; name: string; type?: string }
+  ) =>
+    api.post("/api/board/messages", {
+      ...(body ? { body } : {}),
+      ...(recipient_id ? { recipient_id } : {}),
+      ...(attachment ? { attachment } : {}),
+    }),
   getContacts: () => api.get("/api/board/contacts"),
 };
 

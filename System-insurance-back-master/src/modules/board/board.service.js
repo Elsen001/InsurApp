@@ -35,6 +35,7 @@ const deleteAnnouncement = async (id) => {
 const MSG_COLS = [
   'chat_messages.id', 'chat_messages.user_id', 'chat_messages.recipient_id',
   'chat_messages.body', 'chat_messages.created_at',
+  'chat_messages.attachment_url', 'chat_messages.attachment_name', 'chat_messages.attachment_type',
   'users.name as user_name', 'users.role as user_role',
 ];
 
@@ -62,8 +63,15 @@ const listMessages = async (userId, peerId) => {
   return rows.reverse(); // köhnədən yeniyə
 };
 
-const postMessage = async (userId, body, recipientId = null) => {
-  const [id] = await db('chat_messages').insert({ user_id: userId, body, recipient_id: recipientId || null });
+const postMessage = async (userId, body, recipientId = null, attachment = null) => {
+  const [id] = await db('chat_messages').insert({
+    user_id: userId,
+    body: body || null,
+    recipient_id: recipientId || null,
+    attachment_url: attachment?.url || null,
+    attachment_name: attachment?.name || null,
+    attachment_type: attachment?.type || null,
+  });
   return db('chat_messages')
     .join('users', 'chat_messages.user_id', 'users.id')
     .select(MSG_COLS)
@@ -84,7 +92,7 @@ const listContacts = async (userId) => {
     .andWhere(function () {
       this.where('user_id', userId).orWhere('recipient_id', userId);
     })
-    .select('id', 'user_id', 'recipient_id', 'body', 'created_at')
+    .select('id', 'user_id', 'recipient_id', 'body', 'attachment_name', 'created_at')
     .orderBy('id', 'asc');
 
   const lastByPeer = {};
@@ -92,7 +100,7 @@ const listContacts = async (userId) => {
     const peer = m.user_id === userId ? m.recipient_id : m.user_id;
     lastByPeer[peer] = {
       last_message_id: m.id,
-      last_body: m.body,
+      last_body: m.body || (m.attachment_name ? `📎 ${m.attachment_name}` : ''),
       last_at: m.created_at,
       last_from_me: m.user_id === userId,
     };

@@ -2,7 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { boardApi, authApi } from "@/lib/api";
-import { Bell, MessageCircle, X, Send, Trash2, Megaphone, Smile, ArrowLeft, KeyRound, Check } from "lucide-react";
+import { Bell, MessageCircle, X, Send, Trash2, Megaphone, Smile, ArrowLeft, KeyRound, Check, Paperclip, FileText, Download } from "lucide-react";
+
+const MAX_FILE_MB = 3; // maksimum fayl ölçüsü (base64 DB-də saxlanır)
 
 // Chat üçün emoji seçimi
 const EMOJIS = [
@@ -41,7 +43,9 @@ export function TopBar() {
   const [peer, setPeer] = useState<any | null>(null); // seçilmiş şəxs (şəxsi yazışma)
   const [contacts, setContacts] = useState<any[]>([]);
   const [resetRequests, setResetRequests] = useState<any[]>([]);
+  const [attachment, setAttachment] = useState<{ url: string; name: string; type: string } | null>(null); // göndəriləcək fayl/şəkil
   const chatRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLastSeen(Number(localStorage.getItem("ann_last_seen") || 0));
@@ -97,7 +101,22 @@ export function TopBar() {
     setPeer(null);
     setChatTab("public");
     setShowEmoji(false);
+    setAttachment(null);
     loadMessages();
+  };
+
+  // Fayl/şəkil seç → base64 data URL kimi oxu
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // eyni faylı təkrar seçə bilmək üçün
+    if (!file) return;
+    if (file.size > MAX_FILE_MB * 1024 * 1024) {
+      alert(`Fayl çox böyükdür. Maksimum ${MAX_FILE_MB} MB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAttachment({ url: String(reader.result), name: file.name, type: file.type || "" });
+    reader.readAsDataURL(file);
   };
 
   const toggleAnn = () => {
@@ -129,11 +148,12 @@ export function TopBar() {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim() || sending) return;
+    if ((!chatInput.trim() && !attachment) || sending) return;
     setSending(true);
     try {
-      await boardApi.postMessage(chatInput.trim(), peer?.id);
+      await boardApi.postMessage(chatInput.trim(), peer?.id, attachment || undefined);
       setChatInput("");
+      setAttachment(null);
       loadMessages(peer?.id);
     } finally {
       setSending(false);
@@ -396,7 +416,26 @@ export function TopBar() {
                             {m.user_name}{m.user_role === "admin" ? " · Admin" : m.user_role === "subagent" ? " · Subagent" : ""}
                           </p>
                         )}
-                        <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                        {/* Fayl/şəkil əlavəsi */}
+                        {m.attachment_url && (
+                          (m.attachment_type || "").startsWith("image/") ? (
+                            <a href={m.attachment_url} target="_blank" rel="noopener noreferrer" className="block mb-1">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={m.attachment_url} alt={m.attachment_name || "şəkil"} className="max-h-48 rounded-lg border border-black/10 object-cover" />
+                            </a>
+                          ) : (
+                            <a
+                              href={m.attachment_url}
+                              download={m.attachment_name || "fayl"}
+                              className={`flex items-center gap-2 mb-1 rounded-lg px-2 py-1.5 text-xs ${mine ? "bg-white/15 hover:bg-white/25" : "bg-slate-100 hover:bg-slate-200 text-slate-700"}`}
+                            >
+                              <FileText size={16} className="shrink-0" />
+                              <span className="truncate flex-1">{m.attachment_name || "fayl"}</span>
+                              <Download size={14} className="shrink-0" />
+                            </a>
+                          )
+                        )}
+                        {m.body && <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>}
                         <p className={`text-[10px] mt-0.5 ${mine ? "text-white/70" : "text-muted-foreground"}`}>{timeAgo(m.created_at)}</p>
                       </div>
                     </div>
@@ -430,7 +469,32 @@ export function TopBar() {
                 </>
               )}
 
+              {/* Seçilmiş fayl/şəkil önizləməsi */}
+              {attachment && (
+                <div className="mx-3 mt-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                  {attachment.type.startsWith("image/") ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={attachment.url} alt={attachment.name} className="h-10 w-10 rounded object-cover" />
+                  ) : (
+                    <span className="h-10 w-10 shrink-0 rounded bg-slate-200 text-slate-600 flex items-center justify-center"><FileText size={18} /></span>
+                  )}
+                  <span className="flex-1 min-w-0 text-xs text-slate-700 truncate">{attachment.name}</span>
+                  <button type="button" onClick={() => setAttachment(null)} className="text-slate-400 hover:text-red-500 shrink-0"><X size={16} /></button>
+                </div>
+              )}
+
               <form onSubmit={sendMessage} className="p-3 flex items-center gap-2">
+                {/* Fayl/şəkil əlavə et */}
+                <input ref={fileInputRef} type="file" onChange={handleFile} className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar" />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:text-primary hover:border-primary/40 transition"
+                  title="Fayl / şəkil əlavə et"
+                >
+                  <Paperclip size={18} />
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowEmoji(s => !s)}
@@ -445,7 +509,7 @@ export function TopBar() {
                   placeholder={peer ? `${peer.name} adlı şəxsə yazın...` : "Mesaj yazın..."}
                   className="flex-1 h-10 rounded-full border border-slate-200 px-4 text-sm focus:outline-none focus:border-primary"
                 />
-                <button type="submit" disabled={sending || !chatInput.trim()} className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50 hover:bg-primary/90">
+                <button type="submit" disabled={sending || (!chatInput.trim() && !attachment)} className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50 hover:bg-primary/90">
                   <Send size={17} />
                 </button>
               </form>
