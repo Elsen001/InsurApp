@@ -96,7 +96,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">İdarə Paneli</h1>
+      <h1 className="text-2xl font-bold text-slate-900">Ana səhifə</h1>
 
       {/* KPI kartlar */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

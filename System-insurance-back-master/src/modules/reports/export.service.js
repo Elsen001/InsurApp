@@ -435,33 +435,38 @@ const exportAgentPDF = async (agentId) => {
 };
 
 // ── Agentlər siyahısı (agent + subagent) export ──
-const getAgentsList = async () => {
-  const rows = await db('users')
+const getAgentsList = async (role = 'all') => {
+  const q = db('users')
     .whereIn('users.role', ['agent', 'subagent'])
     .leftJoin('users as parent', 'users.parent_agent_id', 'parent.id')
     .select(
-      'users.id', 'users.name', 'users.role', 'users.email',
+      'users.id', 'users.name', 'users.role', 'users.email', 'users.phone',
       'users.vezife', 'users.filial', 'users.address', 'users.fin', 'users.sv',
       'users.rating', 'users.is_active', 'parent.name as parent_name'
     )
     .orderBy('users.role', 'asc')
     .orderBy('users.name', 'asc');
-  return rows;
+  // Rol filtri: agent / subagent / all
+  if (role === 'agent' || role === 'subagent') q.where('users.role', role);
+  return q;
 };
 
 const roleLabel = (r) => (r === 'subagent' ? 'Subagent' : 'Agent');
 
-const exportAgentsExcel = async () => {
-  const data = await getAgentsList();
+const exportAgentsExcel = async (role = 'all') => {
+  const data = await getAgentsList(role);
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Insurance System';
   workbook.created = new Date();
-  const sheet = workbook.addWorksheet('Agentlər');
+  const sheetName = role === 'subagent' ? 'Subagentlər' : role === 'agent' ? 'Agentlər' : 'Agentlər və Subagentlər';
+  const sheet = workbook.addWorksheet(sheetName);
   sheet.columns = [
+    { header: '№', key: 'no', width: 5 },
     { header: 'Ad Soyad', key: 'name', width: 24 },
     { header: 'Növ', key: 'role', width: 12 },
     { header: 'Vəzifə', key: 'vezife', width: 20 },
     { header: 'Filial/Nümayəndəlik', key: 'filial', width: 22 },
+    { header: 'Mobil nömrə', key: 'phone', width: 18 },
     { header: 'Ünvan', key: 'address', width: 24 },
     { header: 'FİN', key: 'fin', width: 14 },
     { header: 'Ş/V', key: 'sv', width: 16 },
@@ -470,15 +475,22 @@ const exportAgentsExcel = async () => {
     { header: 'Valideyn agent', key: 'parent_name', width: 22 },
     { header: 'Status', key: 'is_active', width: 12 },
   ];
-  sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
 
-  data.forEach(a => {
+  // Başlıq sətri — tünd fon, ağ qalın mətn, mərkəz
+  const header = sheet.getRow(1);
+  header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+  header.alignment = { vertical: 'middle', horizontal: 'center' };
+  header.height = 22;
+
+  data.forEach((a, i) => {
     sheet.addRow({
+      no: i + 1,
       name: a.name,
       role: roleLabel(a.role),
       vezife: a.vezife || '—',
       filial: a.filial || '—',
+      phone: a.phone || '—',
       address: a.address || '—',
       fin: a.fin || '—',
       sv: a.sv || '—',
@@ -488,11 +500,36 @@ const exportAgentsExcel = async () => {
       is_active: a.is_active ? 'Aktiv' : 'Deaktiv',
     });
   });
+
+  const lastCol = sheet.columnCount;
+  // Bütün xanalara nazik sərhəd + cüt sətirlərə zebra fon
+  sheet.eachRow((row, rowNumber) => {
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+        left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+        bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+        right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+      };
+      cell.alignment = { vertical: 'middle', ...(cell.alignment || {}) };
+    });
+    if (rowNumber > 1 && rowNumber % 2 === 1) {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      });
+    }
+  });
+
+  // Süzgəc (autofilter) + başlığı dondur
+  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: lastCol } };
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
   return workbook;
 };
 
-const exportAgentsPDF = async () => {
-  const data = await getAgentsList();
+const exportAgentsPDF = async (role = 'all') => {
+  const data = await getAgentsList(role);
+  const title = role === 'subagent' ? 'Subagentlər siyahısı' : role === 'agent' ? 'Agentlər siyahısı' : 'Agentlər və Subagentlər siyahısı';
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
     const buffers = [];
@@ -500,54 +537,97 @@ const exportAgentsPDF = async () => {
     doc.on('end', () => resolve(Buffer.concat(buffers)));
     doc.on('error', reject);
 
-    doc.fontSize(18).text('Agentlər siyahısı', { align: 'center' });
+    doc.fontSize(18).text(title, { align: 'center' });
     doc.fontSize(10).text(`Tarix: ${new Date().toLocaleDateString('az-AZ')}  ·  Cəmi: ${data.length}`, { align: 'center' });
     doc.moveDown(1);
 
-    // Sadə cədvəl
+    // Cədvəl sütunları
     const cols = [
-      { key: 'name', label: 'Ad', w: 110 },
+      { key: 'no', label: '№', w: 26 },
+      { key: 'name', label: 'Ad', w: 100 },
       { key: 'role', label: 'Növ', w: 55 },
-      { key: 'vezife', label: 'Vəzifə', w: 90 },
-      { key: 'filial', label: 'Filial', w: 100 },
-      { key: 'fin', label: 'FİN', w: 70 },
-      { key: 'sv', label: 'Ş/V', w: 80 },
-      { key: 'rating', label: 'Reytinq', w: 50 },
-      { key: 'email', label: 'Email', w: 130 },
+      { key: 'vezife', label: 'Vəzifə', w: 80 },
+      { key: 'filial', label: 'Filial', w: 90 },
+      { key: 'phone', label: 'Mobil', w: 80 },
+      { key: 'fin', label: 'FİN', w: 62 },
+      { key: 'sv', label: 'Ş/V', w: 72 },
+      { key: 'rating', label: 'Reytinq', w: 45 },
+      { key: 'email', label: 'Email', w: 110 },
     ];
     const startX = 40;
+    const tableW = cols.reduce((s, c) => s + c.w, 0);
     let y = doc.y;
     const rowH = 18;
 
     const drawHeader = () => {
-      doc.fontSize(9).font('Helvetica-Bold');
+      doc.rect(startX, y, tableW, rowH).fill('#1e3a5f');
+      doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold');
       let x = startX;
-      cols.forEach(c => { doc.text(c.label, x + 2, y + 4, { width: c.w - 4 }); x += c.w; });
-      doc.moveTo(startX, y + rowH).lineTo(startX + cols.reduce((s, c) => s + c.w, 0), y + rowH).stroke();
+      cols.forEach(c => { doc.text(c.label, x + 2, y + 5, { width: c.w - 4 }); x += c.w; });
       y += rowH;
-      doc.font('Helvetica');
+      doc.fillColor('#000000').font('Helvetica');
     };
     drawHeader();
 
-    data.forEach(a => {
+    data.forEach((a, i) => {
       if (y > 520) { doc.addPage(); y = 40; drawHeader(); }
+      // zebra
+      if (i % 2 === 1) { doc.rect(startX, y, tableW, rowH).fill('#f3f4f6'); doc.fillColor('#000000'); }
       const vals = {
-        name: a.name, role: roleLabel(a.role), vezife: a.vezife || '—',
-        filial: a.filial || '—', fin: a.fin || '—', sv: a.sv || '—',
+        no: String(i + 1), name: a.name, role: roleLabel(a.role), vezife: a.vezife || '—',
+        filial: a.filial || '—', phone: a.phone || '—', fin: a.fin || '—', sv: a.sv || '—',
         rating: a.rating ? `${a.rating}/5` : '—', email: a.email,
       };
       let x = startX;
-      doc.fontSize(8);
-      cols.forEach(c => { doc.text(String(vals[c.key]), x + 2, y + 4, { width: c.w - 4, ellipsis: true, height: rowH - 4 }); x += c.w; });
-      doc.moveTo(startX, y + rowH).lineTo(startX + cols.reduce((s, c) => s + c.w, 0), y + rowH).strokeColor('#e5e7eb').stroke().strokeColor('#000');
+      doc.fontSize(8).fillColor('#000000');
+      cols.forEach(c => { doc.text(String(vals[c.key]), x + 2, y + 5, { width: c.w - 4, ellipsis: true, height: rowH - 4 }); x += c.w; });
+      // sətir sərhədi
+      doc.moveTo(startX, y + rowH).lineTo(startX + tableW, y + rowH).strokeColor('#e5e7eb').stroke().strokeColor('#000');
       y += rowH;
     });
+    // Xarici çərçivə
+    doc.rect(startX, doc.y, 0, 0);
 
     doc.end();
   });
 };
 
+// Məhsul → filial → satıcı üzrə drill-down (hesabatlar səhifəsi üçün).
+// getSummary ilə eyni məntiq: status active/expired, tarix created_at üzrə.
+const getProductDrilldown = async (filters = {}) => {
+  const rows = await applyDates(
+    db('policies as p')
+      .join('users as u', 'u.id', 'p.agent_id')
+      .whereIn('p.status', ['active', 'expired'])
+      .whereNotNull('p.product'),
+    filters,
+    'p.created_at'
+  )
+    .select(
+      'p.product',
+      'p.product_label',
+      db.raw("COALESCE(NULLIF(u.filial, ''), 'Filial təyin edilməyib') as filial"),
+      'u.id as agent_id',
+      'u.name as agent_name',
+      'u.role as agent_role'
+    )
+    .count('* as count')
+    .sum('p.premium_amount as total')
+    .groupBy('p.product', 'p.product_label', 'filial', 'u.id', 'u.name', 'u.role');
+
+  return rows.map((r) => ({
+    product: r.product,
+    product_label: r.product_label,
+    filial: r.filial,
+    agent_id: r.agent_id,
+    agent_name: r.agent_name,
+    agent_role: r.agent_role,
+    count: Number(r.count) || 0,
+    total: Number(r.total) || 0,
+  }));
+};
+
 module.exports = {
   getSummary, getAgentReport, exportExcel, exportPDF, exportAgentExcel, exportAgentPDF,
-  exportAgentsExcel, exportAgentsPDF,
+  exportAgentsExcel, exportAgentsPDF, getProductDrilldown,
 };

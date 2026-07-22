@@ -12,11 +12,22 @@ import {
 import { Plus, Eye, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PRODUCT_GROUPS, PRODUCT_LABELS } from "@/lib/products";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 
 // Polisin məhsulu (yeni) və ya köhnə tipi
 const prodKey = (p: any) => p.product || p.type;
 const prodLabel = (p: any) =>
   p.product_label || PRODUCT_LABELS[p.product] || POLICY_TYPE_LABELS[p.type] || p.type || "—";
+
+// Polis statusu üzrə filtr (ödənişlərdən köçürüldü)
+const statusOptions = [
+  { value: "all", label: "Hamısı" },
+  { value: "active", label: "Qüvvədədir" },
+  { value: "upcoming", label: "Qüvvəyə minəcək" },
+  { value: "expired", label: "Qüvvədən düşüb" },
+  { value: "terminated", label: "Xitam verilib" },
+  { value: "cancelled", label: "Ləğv olunub" },
+];
 
 export default function PoliciesPage() {
   const { data: session } = useSession();
@@ -26,6 +37,9 @@ export default function PoliciesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   useEffect(() => {
     policiesApi.getAll().then(res => {
@@ -35,6 +49,14 @@ export default function PoliciesPage() {
   }, []);
 
   useEffect(() => {
+    // Tarix aralığı — satış tarixinə (start_date) görə
+    const inRange = (d?: string) => {
+      if (!d) return true;
+      const day = String(d).slice(0, 10);
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+      return true;
+    };
     let data = policies;
     if (search) {
       const q = search.toLowerCase();
@@ -45,8 +67,10 @@ export default function PoliciesPage() {
       );
     }
     if (typeFilter !== "all") data = data.filter(p => prodKey(p) === typeFilter);
+    if (statusFilter !== "all") data = data.filter(p => p.status === statusFilter);
+    data = data.filter(p => inRange(p.start_date));
     setFiltered(data);
-  }, [search, typeFilter, policies]);
+  }, [search, typeFilter, statusFilter, from, to, policies]);
 
   return (
     <div className="space-y-6">
@@ -83,8 +107,27 @@ export default function PoliciesPage() {
               ))}
             </select>
           </div>
+
+          {/* Status filtri (ödənişlərdən köçürüldü) */}
+          <div className="space-y-2 mt-4">
+            <p className="text-sm font-medium text-muted-foreground">Status</p>
+            <div className="flex gap-2 flex-wrap">
+              {statusOptions.map(s => (
+                <button
+                  key={s.value}
+                  onClick={() => setStatusFilter(s.value)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${statusFilter === s.value ? "bg-primary text-white border-primary" : "border-gray-300 hover:border-gray-400"}`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Tarix filtri (satış tarixinə görə) */}
+      <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} onApply={(f, t) => { setFrom(f || ""); setTo(t || ""); }} />
 
       {/* Cədvəl */}
       <Card>

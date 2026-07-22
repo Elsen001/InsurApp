@@ -10,6 +10,16 @@ const getSummary = async (req, res) => {
   }
 };
 
+const getProductDrilldown = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const rows = await reportsService.getProductDrilldown({ from, to });
+    res.json({ success: true, rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const getAgentReport = async (req, res) => {
   try {
     const report = await reportsService.getAgentReport(req.params.id);
@@ -106,16 +116,19 @@ const exportAgentData = async (req, res) => {
 const exportAgentsList = async (req, res) => {
   try {
     const { format } = req.query;
+    // Rol filtri: all | agent | subagent
+    const role = ['agent', 'subagent'].includes(req.query.role) ? req.query.role : 'all';
+    const fileBase = role === 'subagent' ? 'subagentler' : role === 'agent' ? 'agentler' : 'agentler-subagentler';
     if (format === 'excel') {
-      const workbook = await reportsService.exportAgentsExcel();
+      const workbook = await reportsService.exportAgentsExcel(role);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=agentler-${Date.now()}.xlsx`);
+      res.setHeader('Content-Disposition', `attachment; filename=${fileBase}-${Date.now()}.xlsx`);
       await workbook.xlsx.write(res);
       res.end();
     } else if (format === 'pdf') {
-      const pdfBuffer = await reportsService.exportAgentsPDF();
+      const pdfBuffer = await reportsService.exportAgentsPDF(role);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=agentler-${Date.now()}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=${fileBase}-${Date.now()}.pdf`);
       res.send(pdfBuffer);
     } else {
       res.status(400).json({ success: false, message: 'format=excel və ya format=pdf olmalıdır' });
@@ -125,4 +138,4 @@ const exportAgentsList = async (req, res) => {
   }
 };
 
-module.exports = { getSummary, getAgentReport, getMyReport, exportData, exportAgentData, exportMyData, exportAgentsList };
+module.exports = { getSummary, getProductDrilldown, getAgentReport, getMyReport, exportData, exportAgentData, exportMyData, exportAgentsList };

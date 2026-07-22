@@ -64,6 +64,7 @@ const createAgent = async (req, res) => {
       address: z.string().optional(),
       vezife: z.string().optional(),
       filial: z.string().optional(),
+      phone: z.string().optional(),
       fin: z.string().optional(),
       sv: z.string().optional(),
       rating: z.number().int().min(0).max(5).optional(),

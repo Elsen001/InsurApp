@@ -7,9 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowLeft, ChevronDown, X, Check } from "lucide-react";
+import { ArrowLeft, ChevronDown, X, Check, Car, Home, Plane, Truck, HeartPulse, Briefcase, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { PRODUCT_LABELS } from "@/lib/products";
+
+// Könüllü sığorta növləri üçün məntiqli iconlar (value → icon)
+const KONULLU_ICONS: Record<string, any> = {
+  kasko: Car,                    // Kasko sığorta
+  "əmlak": Home,                 // Əmlak Sığortası
+  "səfər": Plane,                // Səfər sığortası
+  "yük": Truck,                  // Yük sığortası
+  tibbi: HeartPulse,             // Tibbi sığorta
+  "qiymətləndirmə_peşə": Briefcase, // Qiymətləndirmə Peşə Məsuliyyəti
+  "fərdi_qəza": ShieldAlert,     // Fərdi qəza sığortası
+};
 
 // ── Sabit tiplər və məlumatlar ────────────────────────────────────────────────
 
@@ -644,22 +655,30 @@ export default function NewPolicyPage() {
 
                   {openTab === g && g !== "məhsul" && (
                     <div className="absolute top-full left-0 mt-1 w-96 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
-                      {INSURANCE_GROUPS[g].items.map(item => (
-                        <div
-                          key={item.value}
-                          onMouseDown={() => {
-                            setInsuranceGroup(g);
-                            setInsuranceSubType(item.value);
-                            setInsuranceCompany("");
-                            setDetails({});
-                            setOpenTab(null);
-                          }}
-                          className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-gray-50 first:rounded-t-xl last:rounded-b-xl
-                            ${insuranceGroup === g && insuranceSubType === item.value ? "bg-blue-50 text-blue-700" : "text-gray-800"}`}
-                        >
-                          {item.label}
-                        </div>
-                      ))}
+                      {INSURANCE_GROUPS[g].items.map(item => {
+                        const Icon = g === "könüllü" ? KONULLU_ICONS[item.value] : null;
+                        return (
+                          <div
+                            key={item.value}
+                            onMouseDown={() => {
+                              setInsuranceGroup(g);
+                              setInsuranceSubType(item.value);
+                              setInsuranceCompany("");
+                              setDetails({});
+                              setOpenTab(null);
+                            }}
+                            className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-gray-50 first:rounded-t-xl last:rounded-b-xl flex items-center gap-2.5
+                              ${insuranceGroup === g && insuranceSubType === item.value ? "bg-blue-50 text-blue-700" : "text-gray-800"}`}
+                          >
+                            {Icon && (
+                              <span className="shrink-0 h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                                <Icon size={16} />
+                              </span>
+                            )}
+                            <span>{item.label}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 

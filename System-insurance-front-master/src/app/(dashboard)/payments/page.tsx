@@ -6,27 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, POLICY_TYPE_LABELS, formatCurrency, formatDate } from "@/lib/utils";
 import { PRODUCT_LABELS } from "@/lib/products";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 
 // Müqavilə tipi: yeni məhsul, yoxsa köhnə tip
 const contractType = (p: any) =>
   p.policy_product_label || PRODUCT_LABELS[p.policy_product] || POLICY_TYPE_LABELS[p.policy_type] || p.policy_type || "—";
 
-// Polis statusu üzrə filtr
-const statusOptions = [
-  { value: "all", label: "Hamısı" },
-  { value: "active", label: "Qüvvədədir" },
-  { value: "upcoming", label: "Qüvvəyə minəcək" },
-  { value: "expired", label: "Qüvvədən düşüb" },
-  { value: "terminated", label: "Xitam verilib" },
-  { value: "cancelled", label: "Ləğv olunub" },
-];
-
 export default function PaymentsPage() {
   const { data: session } = useSession();
   const role = (session?.user as any)?.role;
   const [payments, setPayments] = useState<any[]>([]);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [view, setView] = useState<"payments" | "installments">("payments");
+  const [view, setView] = useState<"payments" | "installments" | "terminated" | "cancelled">("payments");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
 
@@ -39,8 +31,15 @@ export default function PaymentsPage() {
 
   useEffect(() => { load(); }, []);
 
-  // Polis statusuna görə filtr (client-side)
-  const filtered = statusFilter === "all" ? payments : payments.filter(p => p.policy_status === statusFilter);
+  // Tarix aralığı üzrə filtr (son ödəniş tarixinə — due_date görə, client-side)
+  const inRange = (d?: string) => {
+    if (!d) return true;
+    const day = String(d).slice(0, 10);
+    if (from && day < from) return false;
+    if (to && day > to) return false;
+    return true;
+  };
+  const filtered = payments.filter(p => inRange(p.due_date));
 
   const handleMarkPaid = async (id: number) => {
     setUpdating(id);
@@ -62,27 +61,41 @@ export default function PaymentsPage() {
     .reduce((s, p) => s + Number(p.amount), 0);
   const grandTotal = filtered.reduce((s, p) => s + Number(p.amount), 0);
 
-  // "Ödənişlər" bölməsi: hissəli olmayan (tək ödənişli) polislər
-  const regularPayments = filtered.filter(p => !isInstallment(p));
+  // Xitam verilib / Ləğv olunub — polis statusuna görə ayrı bölmələr
+  const terminatedPayments = filtered.filter(p => p.policy_status === "terminated");
+  const cancelledPayments = filtered.filter(p => p.policy_status === "cancelled");
+  // Aktiv (xitam/ləğv olmayan) ödənişlər — Ödənişlər və Hissəli bölmələri üçün
+  const isClosed = (p: any) => p.policy_status === "terminated" || p.policy_status === "cancelled";
 
-  // "Hissəli ödənişlər" bölməsi: polis üzrə qruplaşdırılmış
+  // "Ödənişlər" bölməsi: hissəli olmayan (tək ödənişli), xitam/ləğv olmayan polislər
+  const regularPayments = filtered.filter(p => !isInstallment(p) && !isClosed(p));
+
+  // "Hissəli ödənişlər" bölməsi: polis üzrə qruplaşdırılmış (xitam/ləğv xaric)
   const installmentGroups = Object.values(
-    filtered.filter(isInstallment).reduce((acc: Record<string, any>, p) => {
+    filtered.filter(p => isInstallment(p) && !isClosed(p)).reduce((acc: Record<string, any>, p) => {
       const g = (acc[p.policy_id] ||= {
         policy_id: p.policy_id,
         policy_number: p.policy_number,
         start_date: p.policy_start_date,
         type: contractType(p),
+        premium: 0, // sığorta haqqı (bütün hissələrin cəmi)
         total: 0,   // hissə sayı
         paid: 0,    // ödənilən hissə
         debt: 0,    // hissə borcu
       });
+      g.premium += Number(p.amount);
       g.total += 1;
       if (p.status === "paid") g.paid += 1;
       else g.debt += Number(p.amount);
       return acc;
     }, {})
   ) as any[];
+
+  // Düz (flat) ödəniş cədvəli üçün siyahı — seçilmiş bölməyə görə
+  const flatList =
+    view === "terminated" ? terminatedPayments :
+    view === "cancelled" ? cancelledPayments :
+    regularPayments;
 
   return (
     <div className="space-y-6">
@@ -122,33 +135,23 @@ export default function PaymentsPage() {
         </Card>
       </div>
 
-      {/* Status filtri */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-muted-foreground">Status</p>
-        <div className="flex gap-2 flex-wrap">
-          {statusOptions.map(s => (
-            <button
-              key={s.value}
-              onClick={() => setStatusFilter(s.value)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${statusFilter === s.value ? "bg-primary text-white border-primary" : "border-gray-300 hover:border-gray-400"}`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Tarix filtri (son ödəniş tarixinə görə) */}
+      <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} onApply={(f, t) => { setFrom(f || ""); setTo(t || ""); }} />
 
-      {/* Bölmə seçimi: Ödənişlər | Hissəli ödənişlər */}
-      <div className="flex gap-2">
-        {([["payments", "Ödənişlər"], ["installments", "Hissəli ödənişlər"]] as const).map(([v, l]) => (
+      {/* Bölmə seçimi: Ödənişlər | Hissəli ödənişlər | Xitam verilib | Ləğv olunub */}
+      <div className="flex gap-2 flex-wrap">
+        {([
+          ["payments", "Ödənişlər", regularPayments.length],
+          ["installments", "Hissəli ödənişlər", installmentGroups.length],
+          ["terminated", "Xitam verilib", terminatedPayments.length],
+          ["cancelled", "Ləğv olunub", cancelledPayments.length],
+        ] as const).map(([v, l, n]) => (
           <button
             key={v}
             onClick={() => setView(v)}
             className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${view === v ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200 hover:border-primary/40"}`}
           >
-            {l}
-            {v === "payments" && regularPayments.length > 0 ? ` (${regularPayments.length})` : ""}
-            {v === "installments" && installmentGroups.length > 0 ? ` (${installmentGroups.length})` : ""}
+            {l}{n > 0 ? ` (${n})` : ""}
           </button>
         ))}
       </div>
@@ -158,26 +161,29 @@ export default function PaymentsPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin h-8 w-8 rounded-full border-4 border-primary border-t-transparent" /></div>
-          ) : view === "payments" ? (
-            regularPayments.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">Ödəniş tapılmadı</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left px-4 py-3 font-semibold">Sığorta №</th>
-                      <th className="text-left px-4 py-3 font-semibold">Növ</th>
-                      <th className="text-left px-4 py-3 font-semibold">Müştəri</th>
-                      <th className="text-right px-4 py-3 font-semibold">Məbləğ</th>
-                      <th className="text-left px-4 py-3 font-semibold">Son tarix</th>
-                      <th className="text-left px-4 py-3 font-semibold">Status</th>
-                      {role === "admin" && <th className="text-left px-4 py-3 font-semibold">Agent</th>}
-                      {role === "admin" && <th className="px-4 py-3"></th>}
+          ) : view !== "installments" ? (
+            /* Ödənişlər / Xitam verilib / Ləğv olunub — eyni düz cədvəl formatı */
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left px-4 py-3 font-semibold">Sığorta №</th>
+                    <th className="text-left px-4 py-3 font-semibold">Növ</th>
+                    <th className="text-left px-4 py-3 font-semibold">Müştəri</th>
+                    <th className="text-right px-4 py-3 font-semibold">Məbləğ</th>
+                    <th className="text-left px-4 py-3 font-semibold">Son tarix</th>
+                    <th className="text-left px-4 py-3 font-semibold">Status</th>
+                    {role === "admin" && <th className="text-left px-4 py-3 font-semibold">Agent</th>}
+                    {role === "admin" && <th className="px-4 py-3"></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {flatList.length === 0 ? (
+                    <tr>
+                      <td colSpan={role === "admin" ? 8 : 6} className="text-center py-12 text-muted-foreground">Ödəniş yoxdur</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {regularPayments.map(p => (
+                  ) : (
+                    flatList.map(p => (
                       <tr key={p.id} className="border-b hover:bg-gray-50">
                         <td className="px-4 py-3 font-mono text-xs font-medium">{p.policy_number}</td>
                         <td className="px-4 py-3">{contractType(p)}</td>
@@ -200,45 +206,49 @@ export default function PaymentsPage() {
                           </td>
                         )}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            /* Hissəli ödənişlər — polis üzrə qruplaşdırılmış */
-            installmentGroups.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">Hissəli ödəniş tapılmadı</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left px-4 py-3 font-semibold">S/S</th>
-                      <th className="text-left px-4 py-3 font-semibold">Müqavilə No</th>
-                      <th className="text-left px-4 py-3 font-semibold">Satış tarixi</th>
-                      <th className="text-left px-4 py-3 font-semibold">Müqavilə tipi</th>
-                      <th className="text-center px-4 py-3 font-semibold">Hissə sayı</th>
-                      <th className="text-center px-4 py-3 font-semibold">Ödənilən hissə</th>
-                      <th className="text-right px-4 py-3 font-semibold">Hissə borcu</th>
+            /* Hissəli ödənişlər — polis üzrə qruplaşdırılmış; başlıqlar boş olsa da qalır */
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left px-4 py-3 font-semibold">S/S</th>
+                    <th className="text-left px-4 py-3 font-semibold">Müqavilə No</th>
+                    <th className="text-left px-4 py-3 font-semibold">Satış tarixi</th>
+                    <th className="text-left px-4 py-3 font-semibold">Müqavilə tipi</th>
+                    <th className="text-right px-4 py-3 font-semibold">Sığorta haqqı</th>
+                    <th className="text-center px-4 py-3 font-semibold">Hissə sayı</th>
+                    <th className="text-center px-4 py-3 font-semibold">Ödənilən hissə</th>
+                    <th className="text-right px-4 py-3 font-semibold">Hissə borcu</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {installmentGroups.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-12 text-muted-foreground">Hissəli ödəniş yoxdur</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {installmentGroups.map((g, i) => (
+                  ) : (
+                    installmentGroups.map((g, i) => (
                       <tr key={g.policy_id} className="border-b hover:bg-gray-50">
                         <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
                         <td className="px-4 py-3 font-mono text-xs font-medium">{g.policy_number}</td>
                         <td className="px-4 py-3">{g.start_date ? formatDate(g.start_date) : "—"}</td>
                         <td className="px-4 py-3">{g.type}</td>
+                        <td className="px-4 py-3 text-right font-medium">{formatCurrency(g.premium)}</td>
                         <td className="px-4 py-3 text-center">{g.total}</td>
                         <td className="px-4 py-3 text-center font-medium text-green-600">{g.paid}</td>
                         <td className={`px-4 py-3 text-right font-medium ${g.debt > 0 ? "text-amber-600" : ""}`}>{formatCurrency(g.debt)}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -3,13 +3,13 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, FileText, CreditCard, BarChart3, Users, ShieldCheck, LogOut, Menu, X, Percent, Gift
+  LayoutDashboard, FileText, CreditCard, BarChart3, Users, ShieldCheck, LogOut, Menu, X, Percent, Gift, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const navItems = [
-  { href: "/dashboard", label: "İdarə Paneli", icon: LayoutDashboard, roles: ["admin", "agent", "subagent"] },
+  { href: "/dashboard", label: "Ana səhifə", icon: LayoutDashboard, roles: ["admin", "agent", "subagent"] },
   { href: "/policies", label: "Sığorta al", icon: FileText, roles: ["admin", "agent", "subagent"] },
   { href: "/payments", label: "Ödənişlər", icon: CreditCard, roles: ["admin", "agent", "subagent"] },
   { href: "/my-report", label: "Hesabatım", icon: BarChart3, roles: ["agent", "subagent"] },
@@ -18,6 +18,7 @@ const navItems = [
   { href: "/agents", label: "Agentlər", icon: Users, roles: ["admin"] },
   { href: "/bonuses", label: "Bonuslar", icon: Gift, roles: ["admin"] },
   { href: "/pricing-rules", label: "Qiymət Qaydaları", icon: Percent, roles: ["admin"] },
+  { href: "/extra-services", label: "Əlavə xidmətlər", icon: Sparkles, roles: ["admin", "agent", "subagent"] },
 ];
 
 export function Sidebar() {

@@ -26,7 +26,7 @@ export default function AgentsPage() {
   const [allPolicies, setAllPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", address: "", vezife: "", filial: "", fin: "", sv: "", rating: 0, role: "agent", parent_agent_id: "", icbari: [] as string[], konullu: [] as string[] });
+  const [form, setForm] = useState({ name: "", email: "", password: "", address: "", vezife: "", filial: "", phone: "", fin: "", sv: "", rating: 0, role: "agent", parent_agent_id: "", icbari: [] as string[], konullu: [] as string[] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -88,6 +88,7 @@ export default function AgentsPage() {
         address: form.address || undefined,
         vezife: form.vezife || undefined,
         filial: form.filial || undefined,
+        phone: form.phone || undefined,
         fin: form.fin || undefined,
         sv: form.sv || undefined,
         rating: form.rating || undefined,
@@ -112,7 +113,7 @@ export default function AgentsPage() {
         });
       }
       setShowForm(false);
-      setForm({ name: "", email: "", password: "", address: "", vezife: "", filial: "", fin: "", sv: "", rating: 0, role: "agent", parent_agent_id: "", icbari: [], konullu: [] });
+      setForm({ name: "", email: "", password: "", address: "", vezife: "", filial: "", phone: "", fin: "", sv: "", rating: 0, role: "agent", parent_agent_id: "", icbari: [], konullu: [] });
       // Yaratdıqdan sonra Bonuslar səhifəsinə keç
       router.push("/bonuses");
     } catch (err: any) {
@@ -178,17 +179,19 @@ export default function AgentsPage() {
         <h1 className="text-2xl font-bold text-slate-900">Agentlər</h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={async () => {
-            const res = await reportsApi.exportAgentsExcel();
+            const res = await reportsApi.exportAgentsExcel(roleFilter);
             const url = window.URL.createObjectURL(new Blob([res.data]));
-            const a = document.createElement("a"); a.href = url; a.download = "agentler.xlsx"; a.click();
+            const base = roleFilter === "subagent" ? "subagentler" : roleFilter === "agent" ? "agentler" : "agentler-subagentler";
+            const a = document.createElement("a"); a.href = url; a.download = `${base}.xlsx`; a.click();
             window.URL.revokeObjectURL(url);
           }}>
             <FileSpreadsheet size={15} className="mr-1" />Excel
           </Button>
           <Button variant="outline" size="sm" onClick={async () => {
-            const res = await reportsApi.exportAgentsPDF();
+            const res = await reportsApi.exportAgentsPDF(roleFilter);
             const url = window.URL.createObjectURL(new Blob([res.data]));
-            const a = document.createElement("a"); a.href = url; a.download = "agentler.pdf"; a.click();
+            const base = roleFilter === "subagent" ? "subagentler" : roleFilter === "agent" ? "agentler" : "agentler-subagentler";
+            const a = document.createElement("a"); a.href = url; a.download = `${base}.pdf`; a.click();
             window.URL.revokeObjectURL(url);
           }}>
             <FileText size={15} className="mr-1" />PDF
@@ -263,6 +266,10 @@ export default function AgentsPage() {
                   <div className="space-y-2">
                     <Label>Filial və ya nümayəndəlik</Label>
                     <Input value={form.filial} onChange={e => setForm(f => ({ ...f, filial: e.target.value }))} placeholder="Filial və ya nümayəndəlik" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Mobil nömrə</Label>
+                    <Input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+994 50 123 45 67" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
@@ -470,7 +477,11 @@ export default function AgentsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold">{agent.name}</p>
+                        <p className="font-semibold">
+                          <span className="text-primary">{agent.role === "subagent" ? "Subagent" : "Agent"}</span>
+                          <span className="text-slate-400"> - </span>
+                          {agent.name}
+                        </p>
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${agent.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
                           {agent.is_active ? "Aktiv" : "Deaktiv"}
                         </span>
@@ -500,6 +511,9 @@ export default function AgentsPage() {
                           {agent.vezife && agent.filial ? " · " : ""}
                           {agent.filial}
                         </p>
+                      )}
+                      {agent.phone && (
+                        <p className="text-xs text-slate-500">📱 {agent.phone}</p>
                       )}
                     </div>
 
@@ -551,13 +565,14 @@ export default function AgentsPage() {
                                   {s.name.charAt(0)}
                                 </div>
                                 <div className="text-sm">
-                                  <span className="font-medium">{s.name}</span>
+                                  <span className="font-medium"><span className="text-primary">Subagent</span> - {s.name}</span>
                                   <span className="text-xs text-muted-foreground ml-1.5">{s.email}</span>
                                   {(s.vezife || s.filial) && (
                                     <span className="text-xs text-slate-500 ml-1.5">
                                       · {s.vezife}{s.vezife && s.filial ? " · " : ""}{s.filial}
                                     </span>
                                   )}
+                                  {s.phone && <span className="text-xs text-slate-500 ml-1.5">· 📱 {s.phone}</span>}
                                   <span
                                     className="inline-flex items-center gap-0.5 ml-1.5 align-middle"
                                     title={s.rating > 0 ? `${s.rating}/5 — dəyişmək üçün klikləyin` : "Qiymətləndirmək üçün ulduza klikləyin"}

@@ -13,6 +13,7 @@ router.use(authenticate, requireAdmin);
 
 router.get('/agents/export', ctrl.exportAgentsList);
 router.get('/summary', ctrl.getSummary);
+router.get('/product-drilldown', ctrl.getProductDrilldown);
 router.get('/agent/:id', ctrl.getAgentReport);
 router.get('/agent/:id/export', ctrl.exportAgentData);
 router.get('/export', ctrl.exportData);

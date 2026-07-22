@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, ArrowLeft } from "lucide-react";
+import { ShieldCheck, ArrowLeft, Car, Home, HeartPulse, Plane } from "lucide-react";
 import { authApi } from "@/lib/api";
 
 type Mode = "login" | "forgot" | "reset";
@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [enterAnim, setEnterAnim] = useState(false); // tam ekran giriş animasiyası
 
   // Şifrə bərpası vəziyyəti
   const [resetEmail, setResetEmail] = useState("");
@@ -29,6 +30,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setEnterAnim(true);
 
     const result = await signIn("credentials", {
       email,
@@ -39,8 +41,10 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Email və ya şifrə yanlışdır");
       setLoading(false);
+      setEnterAnim(false);
     } else {
-      router.push("/dashboard");
+      // Animasiya görünsün deyə qısa gözləmə, sonra yönləndir
+      setTimeout(() => router.push("/dashboard"), 1900);
     }
   };
 
@@ -104,6 +108,80 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-blue-950 p-4">
+      {/* ── Tam ekran giriş animasiyası (sığorta temalı) ── */}
+      {enterAnim && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 animate-[fadeIn_0.4s_ease-out]">
+          {/* Arxa fon — üzən işıq ləkələri */}
+          <div className="pointer-events-none absolute -top-24 -left-24 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl animate-[blob_9s_ease-in-out_infinite]" />
+          <div className="pointer-events-none absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-emerald-500/20 blur-3xl animate-[blob_11s_ease-in-out_infinite_reverse]" />
+          <div className="pointer-events-none absolute top-1/3 right-1/4 h-72 w-72 rounded-full bg-rose-500/10 blur-3xl animate-[blob_13s_ease-in-out_infinite]" />
+
+          {/* Orbit — mərkəzdə qalxan, ətrafında sığorta ikonları */}
+          <div className="relative h-72 w-72">
+            {/* fırlanan halqa */}
+            <div className="absolute inset-6 rounded-full border border-white/10 animate-[spin_12s_linear_infinite]" />
+            <div className="absolute inset-0 rounded-full border border-dashed border-white/10 animate-[spin_18s_linear_infinite_reverse]" />
+
+            {/* mərkəz — qalxan */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-24 w-24 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl animate-[beat_1.6s_ease-in-out_infinite]">
+                <ShieldCheck className="h-12 w-12 text-white" />
+              </div>
+            </div>
+
+            {/* orbitləşən ikonlar */}
+            <div className="absolute inset-0 animate-[spin_10s_linear_infinite]">
+              {[
+                { Icon: Car, pos: "top-0 left-1/2 -translate-x-1/2", color: "text-sky-300", ring: "bg-sky-500/15 border-sky-400/30" },
+                { Icon: Plane, pos: "right-0 top-1/2 -translate-y-1/2", color: "text-indigo-300", ring: "bg-indigo-500/15 border-indigo-400/30" },
+                { Icon: Home, pos: "bottom-0 left-1/2 -translate-x-1/2", color: "text-emerald-300", ring: "bg-emerald-500/15 border-emerald-400/30" },
+                { Icon: HeartPulse, pos: "left-0 top-1/2 -translate-y-1/2", color: "text-rose-300", ring: "bg-rose-500/15 border-rose-400/30" },
+              ].map(({ Icon, pos, color, ring }, i) => (
+                <div key={i} className={`absolute ${pos}`}>
+                  <div className={`h-16 w-16 rounded-2xl border backdrop-blur-sm flex items-center justify-center shadow-xl ${ring} animate-[spin_10s_linear_infinite_reverse]`}>
+                    <Icon className={`h-8 w-8 ${color}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mətn + zolaq */}
+          <div className="mt-10 flex flex-col items-center gap-4">
+            <p className="text-white text-xl font-semibold tracking-wide flex items-center">
+              Daxil olunur
+              <span className="inline-flex gap-1 ml-2">
+                {[0, 150, 300].map(d => (
+                  <span key={d} className="h-1.5 w-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                ))}
+              </span>
+            </p>
+            <p className="text-slate-400 text-sm">Sığorta Sistemi</p>
+            <div className="h-1 w-56 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-rose-400 animate-[loadbar_1.6s_ease-in-out_infinite]" />
+            </div>
+          </div>
+
+          {/* Keyframe tərifləri */}
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes beat {
+              0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.15) }
+              50% { transform: scale(1.08); box-shadow: 0 0 40px 8px rgba(96,165,250,0.25) }
+            }
+            @keyframes blob {
+              0%, 100% { transform: translate(0,0) scale(1) }
+              33% { transform: translate(30px,-20px) scale(1.1) }
+              66% { transform: translate(-20px,20px) scale(0.95) }
+            }
+            @keyframes loadbar {
+              0% { transform: translateX(-120%) }
+              100% { transform: translateX(360%) }
+            }
+          `}</style>
+        </div>
+      )}
+
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-2">
