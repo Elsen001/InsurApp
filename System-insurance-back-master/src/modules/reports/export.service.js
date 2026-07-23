@@ -461,19 +461,20 @@ const exportAgentsExcel = async (role = 'all') => {
   const sheetName = role === 'subagent' ? 'Subagentlər' : role === 'agent' ? 'Agentlər' : 'Agentlər və Subagentlər';
   const sheet = workbook.addWorksheet(sheetName);
   sheet.columns = [
-    { header: '№', key: 'no', width: 5 },
+    { header: 'S/S', key: 'no', width: 6 },
     { header: 'Ad Soyad', key: 'name', width: 24 },
-    { header: 'Növ', key: 'role', width: 12 },
-    { header: 'Vəzifə', key: 'vezife', width: 20 },
+    { header: 'Satıcı', key: 'role', width: 12 },
     { header: 'Filial/Nümayəndəlik', key: 'filial', width: 22 },
-    { header: 'Mobil nömrə', key: 'phone', width: 18 },
-    { header: 'Ünvan', key: 'address', width: 24 },
+    { header: 'Vəzifə', key: 'vezife', width: 20 },
+    { header: 'Mobil:', key: 'phone', width: 16 },
     { header: 'FİN', key: 'fin', width: 14 },
     { header: 'Ş/V', key: 'sv', width: 16 },
     { header: 'Reytinq', key: 'rating', width: 10 },
-    { header: 'Email', key: 'email', width: 26 },
-    { header: 'Valideyn agent', key: 'parent_name', width: 22 },
-    { header: 'Status', key: 'is_active', width: 12 },
+    { header: 'Email', key: 'email', width: 28 },
+    { header: 'Rəsmi lisenziya agenti', key: 'license_agent', width: 22 },
+    { header: 'Menecer', key: 'parent_name', width: 20 },
+    { header: 'Ünvan', key: 'address', width: 22 },
+    { header: 'Fəaliyyət Status', key: 'is_active', width: 15 },
   ];
 
   // Başlıq sətri — tünd fon, ağ qalın mətn, mərkəz
@@ -488,15 +489,16 @@ const exportAgentsExcel = async (role = 'all') => {
       no: i + 1,
       name: a.name,
       role: roleLabel(a.role),
-      vezife: a.vezife || '—',
       filial: a.filial || '—',
+      vezife: a.vezife || '—',
       phone: a.phone || '—',
-      address: a.address || '—',
       fin: a.fin || '—',
       sv: a.sv || '—',
       rating: a.rating ? `${a.rating}/5` : '—',
       email: a.email,
-      parent_name: a.parent_name || '—',
+      license_agent: '—', // Rəsmi lisenziya agenti — hələlik məlumat yoxdur
+      parent_name: a.parent_name || '—', // Menecer (subagentin valideyn agenti)
+      address: a.address || '—',
       is_active: a.is_active ? 'Aktiv' : 'Deaktiv',
     });
   });
@@ -545,7 +547,7 @@ const exportAgentsPDF = async (role = 'all') => {
     const cols = [
       { key: 'no', label: '№', w: 26 },
       { key: 'name', label: 'Ad', w: 100 },
-      { key: 'role', label: 'Növ', w: 55 },
+      { key: 'role', label: 'Satıcı', w: 55 },
       { key: 'vezife', label: 'Vəzifə', w: 80 },
       { key: 'filial', label: 'Filial', w: 90 },
       { key: 'phone', label: 'Mobil', w: 80 },

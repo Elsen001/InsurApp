@@ -48,8 +48,8 @@ export default function PaymentsPage() {
     setUpdating(null);
   };
 
-  // S/S = sığorta (ödəniş) sayı; ödənilənlər / ödənilməyənlər / hissəli qalan / cəmi
-  const count = filtered.length;
+  // S/S = ödənilməyən müqavilə (polis) sayı; ödənilənlər / ödənilməyənlər / hissəli qalan / cəmi
+  const unpaidContracts = new Set(filtered.filter(p => p.status !== "paid").map(p => p.policy_id)).size;
   const paidTotal = filtered.filter(p => p.status === "paid").reduce((s, p) => s + Number(p.amount), 0);
   const unpaidTotal = filtered.filter(p => p.status !== "paid").reduce((s, p) => s + Number(p.amount), 0);
   // Hissəli = eyni polisə birdən çox ödəniş sətri olanlar; "qalan" = onların ödənilməyən hissəsi
@@ -105,8 +105,8 @@ export default function PaymentsPage() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground" title="Sığorta sayı">S/S</p>
-            <p className="text-2xl font-bold text-slate-800">{count}</p>
+            <p className="text-sm text-muted-foreground">Ödənilməyən müqavilə sayı</p>
+            <p className="text-2xl font-bold text-slate-800">{unpaidContracts}</p>
           </CardContent>
         </Card>
         <Card>
@@ -138,10 +138,10 @@ export default function PaymentsPage() {
       {/* Tarix filtri (son ödəniş tarixinə görə) */}
       <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} onApply={(f, t) => { setFrom(f || ""); setTo(t || ""); }} />
 
-      {/* Bölmə seçimi: Ödənişlər | Hissəli ödənişlər | Xitam verilib | Ləğv olunub */}
+      {/* Bölmə seçimi: Ödənilənlər | Hissəli ödənişlər | Xitam verilib | Ləğv olunub */}
       <div className="flex gap-2 flex-wrap">
         {([
-          ["payments", "Ödənişlər", regularPayments.length],
+          ["payments", "Ödənilənlər", regularPayments.length],
           ["installments", "Hissəli ödənişlər", installmentGroups.length],
           ["terminated", "Xitam verilib", terminatedPayments.length],
           ["cancelled", "Ləğv olunub", cancelledPayments.length],

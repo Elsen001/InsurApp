@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowLeft, ChevronDown, X, Check, Car, Home, Plane, Truck, HeartPulse, Briefcase, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ChevronDown, X, Check, Car, Home, Plane, Truck, Cross, Briefcase, HardHat } from "lucide-react";
 import Link from "next/link";
 import { PRODUCT_LABELS } from "@/lib/products";
 
@@ -17,9 +17,9 @@ const KONULLU_ICONS: Record<string, any> = {
   "əmlak": Home,                 // Əmlak Sığortası
   "səfər": Plane,                // Səfər sığortası
   "yük": Truck,                  // Yük sığortası
-  tibbi: HeartPulse,             // Tibbi sığorta
+  tibbi: Cross,                  // Tibbi sığorta — tibbi plus (xaç)
   "qiymətləndirmə_peşə": Briefcase, // Qiymətləndirmə Peşə Məsuliyyəti
-  "fərdi_qəza": ShieldAlert,     // Fərdi qəza sığortası
+  "fərdi_qəza": HardHat,         // Fərdi qəza sığortası — kask
 };
 
 // ── Sabit tiplər və məlumatlar ────────────────────────────────────────────────

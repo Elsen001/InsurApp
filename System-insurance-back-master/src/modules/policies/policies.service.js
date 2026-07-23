@@ -42,7 +42,22 @@ const getPolicies = async (user) => {
     query = query.where('policies.agent_id', user.id);
   }
 
-  return query;
+  const rows = await query;
+
+  // BUG DÜZƏLİŞİ: hissəli (çox ödənişli) polislər JOIN səbəbilə təkrarlanırdı.
+  // Hər polis 1 sətir; ödəniş statusu prioritetlə: overdue > pending > paid.
+  const rank = { overdue: 3, pending: 2, paid: 1 };
+  const byId = new Map();
+  for (const r of rows) {
+    const ex = byId.get(r.id);
+    if (!ex) {
+      byId.set(r.id, r);
+    } else if ((rank[r.payment_status] || 0) > (rank[ex.payment_status] || 0)) {
+      ex.payment_status = r.payment_status;
+      ex.payment_id = r.payment_id;
+    }
+  }
+  return Array.from(byId.values());
 };
 
 const getPolicyById = async (id, user) => {

@@ -58,16 +58,20 @@ export default function AgentsPage() {
 
   useEffect(() => { load(); }, []);
 
+  // Statistikada sayılan polislər — hesabatlarla EYNİ qayda:
+  // yalnız qüvvədə (active) + qüvvədən düşüb (expired); ləğv/xitam/qüvvəyə minəcək sayılmır
+  const countable = (p: any) => p.status === "active" || p.status === "expired";
+
   // Hər agent üçün filtrlənmiş sığortaları hesabla
   const getAgentPolicies = (agentId: number) => {
-    let policies = allPolicies.filter((p: any) => p.agent_id === agentId);
+    let policies = allPolicies.filter((p: any) => p.agent_id === agentId && countable(p));
     if (typeFilter !== "all") policies = policies.filter((p: any) => prodKey(p) === typeFilter);
     return policies;
   };
 
   // Məhsul üzrə breakdown
   const getTypeSummary = (agentId: number) => {
-    const policies = allPolicies.filter((p: any) => p.agent_id === agentId);
+    const policies = allPolicies.filter((p: any) => p.agent_id === agentId && countable(p));
     const summary: Record<string, { count: number; total: number }> = {};
     policies.forEach((p: any) => {
       const k = prodKey(p);
@@ -220,7 +224,7 @@ export default function AgentsPage() {
                 <div className="flex-1 space-y-4">
                   {/* Rol seçimi */}
                   <div className="space-y-2">
-                    <Label>Növ *</Label>
+                    <Label>Satıcı *</Label>
                     <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
                       <button type="button" onClick={() => setForm(f => ({ ...f, role: "agent", parent_agent_id: "" }))}
                         className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${form.role === "agent" ? "bg-primary text-white shadow" : "text-slate-600"}`}>
@@ -367,7 +371,7 @@ export default function AgentsPage() {
           <div className="flex flex-wrap items-end gap-4">
             {/* Rol */}
             <div className="space-y-1">
-              <Label className="text-xs">Növ</Label>
+              <Label className="text-xs">Satıcı</Label>
               <div className="flex gap-1.5">
                 {([["all", "Hamısı"], ["agent", "Agent"], ["subagent", "Subagent"]] as const).map(([v, l]) => (
                   <button
@@ -517,28 +521,43 @@ export default function AgentsPage() {
                       )}
                     </div>
 
-                    {/* Növ üzrə mini badge-lər */}
-                    <div className="hidden md:flex gap-2 flex-wrap">
-                      {Object.entries(typeSummary).map(([type, data]: any) => (
-                        <span
-                          key={type}
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                            typeFilter === type || typeFilter === "all"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-gray-50 text-gray-400 border-gray-200 opacity-50"
-                          }`}
-                        >
-                          {keyLabel(type)}: {data.count}
-                        </span>
-                      ))}
+                    {/* Növ üzrə mini badge-lər — ilk 3 + qalanı sayla (kart dağılmasın) */}
+                    <div className="hidden md:flex gap-1.5 items-center shrink-0 max-w-[340px]">
+                      {(() => {
+                        const entries = Object.entries(typeSummary);
+                        const shown = entries.slice(0, 3);
+                        const more = entries.length - shown.length;
+                        return (
+                          <>
+                            {shown.map(([type, data]: any) => (
+                              <span
+                                key={type}
+                                title={`${keyLabel(type)}: ${data.count}`}
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium border max-w-[110px] truncate ${
+                                  typeFilter === type || typeFilter === "all"
+                                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                                    : "bg-gray-50 text-gray-400 border-gray-200 opacity-50"
+                                }`}
+                              >
+                                {keyLabel(type)}: {data.count}
+                              </span>
+                            ))}
+                            {more > 0 && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shrink-0" title="Tam bölgü üçün kartı açın">
+                                +{more} məhsul
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
 
-                    <div className="text-left ml-4 min-w-[180px] space-y-0.5">
+                    <div className="text-left ml-2 w-[240px] shrink-0 space-y-0.5">
                       <p className="text-xs"><span className="text-muted-foreground">Sığorta sayı:</span> <span className="font-semibold text-slate-800">{agentPolicies.length}</span></p>
                       <p className="text-xs"><span className="text-muted-foreground">Sığorta haqqı:</span> <span className="text-base font-bold text-slate-800">{formatCurrency(totalPremium)}</span></p>
                       <p className="text-xs"><span className="text-muted-foreground">Komissiya (azn):</span> <span className="font-semibold text-emerald-700">{formatCurrency(totalCommission)}</span></p>
                       {agent.role === "subagent" ? (
-                        <p className="text-xs text-indigo-600 font-medium">Agent: {agent.parent_name}</p>
+                        <p className="text-xs text-indigo-600 font-medium truncate" title={agent.parent_name}>Agent: {agent.parent_name}</p>
                       ) : agent.subagents && agent.subagents.length > 0 ? (
                         <p className="text-xs text-indigo-600 font-medium">{agent.subagents.length} subagent</p>
                       ) : null}

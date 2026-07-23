@@ -30,6 +30,7 @@ export default function BonusesPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bonusSearch, setBonusSearch] = useState("");
   const [expandedUser, setExpandedUser] = useState<number | null>(null);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({}); // məhsul qrupu dropdown-ları
 
   const load = async () => {
     setLoading(true);
@@ -227,37 +228,6 @@ export default function BonusesPage() {
               </div>
             </div>
 
-            {/* Məhsullar üzrə bonus faizi — alt-alta siyahı */}
-            <div className="space-y-2 md:col-span-2">
-              <Label>Sığorta məhsulları üzrə bonus faizi (%)</Label>
-              <div className="space-y-3 max-h-[240px] overflow-y-auto border border-slate-200 rounded-lg p-3">
-                {PRODUCT_GROUPS.map(g => (
-                  <div key={g.key} className="space-y-0.5">
-                    <p className="text-xs font-semibold text-primary uppercase tracking-wide bg-slate-50 px-2 py-1 rounded">{g.label}</p>
-                    {g.items.map(it => {
-                      const val = percents[it.value] ?? "0";
-                      const filled = Number(val) > 0;
-                      return (
-                        <div key={it.value} className={`flex items-center gap-3 rounded-md px-2 py-1 ${filled ? "bg-primary/5" : "hover:bg-slate-50"}`}>
-                          <span className="flex-1 text-sm text-slate-700">{it.label}</span>
-                          <div className="relative w-20 shrink-0">
-                            <Input
-                              type="text" inputMode="numeric" maxLength={2}
-                              value={val}
-                              onChange={e => setPercents(p => ({ ...p, [it.value]: clampPct(e.target.value) }))}
-                              className="pr-6 text-right h-8"
-                            />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Yalnız faiz yazdığınız məhsullar üçün bonus təyin olunur.</p>
-            </div>
-
             {/* Qeyd */}
             <div className="space-y-2 md:col-span-2">
               <Label>Qeyd (bütün seçilənlərə)</Label>
@@ -272,6 +242,61 @@ export default function BonusesPage() {
           <p className="text-xs text-muted-foreground mt-3">
             Faiz yazdığınız hər məhsul üçün seçilmiş agent/subagentlərə bonus yaranır. Eyni istifadəçi + məhsul təkrar təyin edilsə, mövcud bonus yenilənir.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Sığorta məhsulları üzrə bonus faizi — dropdown (başlıq → alt başlıq), inputlar aktiv */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2"><Percent size={18} />Sığorta məhsulları üzrə bonus faizi (%)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {PRODUCT_GROUPS.map(g => {
+            const open = !!openGroups[g.key];
+            const groupFilled = g.items.filter(it => Number(percents[it.value] ?? 0) > 0).length;
+            return (
+              <div key={g.key} className="border border-slate-200 rounded-lg overflow-hidden">
+                {/* Başlıq — kliklə açılır/bağlanır */}
+                <button
+                  type="button"
+                  onClick={() => setOpenGroups(o => ({ ...o, [g.key]: !o[g.key] }))}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 bg-slate-50 hover:bg-slate-100 text-left transition-colors"
+                >
+                  <ChevronDown size={15} className={`text-primary transition-transform ${open ? "rotate-180" : ""}`} />
+                  <span className="text-sm font-semibold text-slate-800">{g.label}</span>
+                  {groupFilled > 0 && (
+                    <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                      {groupFilled} məhsulda faiz var
+                    </span>
+                  )}
+                </button>
+                {/* Alt başlıqlar — məhsullar + aktiv faiz inputları */}
+                {open && (
+                  <div className="divide-y">
+                    {g.items.map(it => {
+                      const val = percents[it.value] ?? "0";
+                      const filled = Number(val) > 0;
+                      return (
+                        <div key={it.value} className={`flex items-center gap-3 px-3 py-1.5 ${filled ? "bg-primary/5" : "hover:bg-slate-50"}`}>
+                          <span className="flex-1 text-sm text-slate-700">{it.label}</span>
+                          <div className="relative w-20 shrink-0">
+                            <Input
+                              type="text" inputMode="numeric" maxLength={2}
+                              value={val}
+                              onChange={e => setPercents(p => ({ ...p, [it.value]: clampPct(e.target.value) }))}
+                              className="pr-6 text-right h-8"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <p className="text-xs text-muted-foreground">Yalnız faiz yazdığınız məhsullar üçün bonus təyin olunur.</p>
         </CardContent>
       </Card>
 

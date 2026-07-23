@@ -159,12 +159,14 @@ export default function PoliciesPage() {
                 <tbody>
                   {filtered.map(p => (
                     <tr key={p.id} className="border-b hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs font-medium">{p.policy_number}</td>
-                      <td className="px-4 py-3">{prodLabel(p)}</td>
-                      <td className="px-4 py-3">{p.customer_name}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(p.premium_amount)}</td>
-                      <td className="px-4 py-3 text-xs">{formatDate(p.start_date)} — {formatDate(p.end_date)}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{p.created_at ? formatDateTime(p.created_at) : "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-medium whitespace-nowrap">{p.policy_number}</td>
+                      <td className="px-4 py-3 max-w-[260px]">
+                        <span className="block truncate" title={prodLabel(p)}>{prodLabel(p)}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">{p.customer_name}</td>
+                      <td className="px-4 py-3 text-right font-medium whitespace-nowrap">{formatCurrency(p.premium_amount)}</td>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">{formatDate(p.start_date)} — {formatDate(p.end_date)}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{p.created_at ? formatDateTime(p.created_at) : "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${POLICY_STATUS_COLORS[p.status]}`}>
                           {STATUS_LABELS[p.status]}
