@@ -100,9 +100,9 @@ export default function DashboardPage() {
 
       {/* KPI kartlar */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={<FileText size={20} />} title="Ümumi Sığorta" value={summary?.total_policies || 0} color="blue" />
-        <StatCard icon={<TrendingUp size={20} />} title="Ümumi Premium" value={formatCurrency(summary?.total_premium || 0)} color="green" />
-        <StatCard icon={<Users size={20} />} title="Ödənilmiş Komissiya" value={formatCurrency(summary?.paid_commissions || 0)} color="purple" />
+        <StatCard icon={<FileText size={20} />} title="Cəmi müqavilə sayı" value={summary?.total_policies || 0} color="blue" />
+        <StatCard icon={<TrendingUp size={20} />} title="Cəmi sığorta haqqı" value={formatCurrency(summary?.total_premium || 0)} color="green" />
+        <StatCard icon={<Users size={20} />} title="Komissiya" value={formatCurrency(summary?.paid_commissions || 0)} color="purple" />
         <StatCard icon={<AlertCircle size={20} />} title="Gecikmiş Ödəniş" value={overdueCount} color="red" urgent={overdueCount > 0} />
       </div>
 
@@ -148,8 +148,8 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-2 font-semibold">Agent</th>
-                    <th className="text-right py-2 font-semibold">Sığorta sayı</th>
-                    <th className="text-right py-2 font-semibold">Ümumi premium</th>
+                    <th className="text-right py-2 font-semibold">Cəmi müqavilə sayı</th>
+                    <th className="text-right py-2 font-semibold">Cəmi sığorta haqqı</th>
                     <th className="text-right py-2 font-semibold">Komissiya</th>
                     <th className="text-right py-2 font-semibold">Faiz</th>
                   </tr>
