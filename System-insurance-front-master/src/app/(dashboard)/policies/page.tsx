@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   POLICY_TYPE_LABELS, STATUS_LABELS, PAYMENT_STATUS_LABELS,
-  PAYMENT_STATUS_COLORS, POLICY_STATUS_COLORS, formatCurrency, formatDate, formatDateTime
+  PAYMENT_STATUS_COLORS, POLICY_STATUS_COLORS, formatCurrency, formatDate, formatDateTime, toDateKey
 } from "@/lib/utils";
 import { Plus, Eye, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -51,8 +51,8 @@ export default function PoliciesPage() {
   useEffect(() => {
     // Tarix aralığı — satış tarixinə (start_date) görə
     const inRange = (d?: string) => {
-      if (!d) return true;
-      const day = String(d).slice(0, 10);
+      if (!d) return !from && !to;
+      const day = toDateKey(d);
       if (from && day < from) return false;
       if (to && day > to) return false;
       return true;
@@ -61,8 +61,8 @@ export default function PoliciesPage() {
     if (search) {
       const q = search.toLowerCase();
       data = data.filter(p =>
-        p.policy_number.toLowerCase().includes(q) ||
-        p.customer_name.toLowerCase().includes(q) ||
+        String(p.policy_number || "").toLowerCase().includes(q) ||
+        String(p.customer_name || "").toLowerCase().includes(q) ||
         (p.agent_name || "").toLowerCase().includes(q)
       );
     }
@@ -147,8 +147,9 @@ export default function PoliciesPage() {
                     <th className="text-left px-4 py-3 font-semibold">Sığorta №</th>
                     <th className="text-left px-4 py-3 font-semibold">Məhsul</th>
                     <th className="text-left px-4 py-3 font-semibold">Müştəri</th>
-                    <th className="text-right px-4 py-3 font-semibold">Məbləğ</th>
-                    <th className="text-left px-4 py-3 font-semibold">Tarix</th>
+                    <th className="text-right px-4 py-3 font-semibold">Sığorta haqqı</th>
+                    <th className="text-left px-4 py-3 font-semibold">Başlama tarixi</th>
+                    <th className="text-left px-4 py-3 font-semibold">Bitmə tarixi</th>
                     <th className="text-left px-4 py-3 font-semibold">Əlavə edilmə</th>
                     <th className="text-left px-4 py-3 font-semibold">Status</th>
                     <th className="text-left px-4 py-3 font-semibold">Ödəniş</th>
@@ -165,7 +166,8 @@ export default function PoliciesPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">{p.customer_name}</td>
                       <td className="px-4 py-3 text-right font-medium whitespace-nowrap">{formatCurrency(p.premium_amount)}</td>
-                      <td className="px-4 py-3 text-xs whitespace-nowrap">{formatDate(p.start_date)} — {formatDate(p.end_date)}</td>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">{formatDate(p.start_date)}</td>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">{formatDate(p.end_date)}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{p.created_at ? formatDateTime(p.created_at) : "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${POLICY_STATUS_COLORS[p.status]}`}>

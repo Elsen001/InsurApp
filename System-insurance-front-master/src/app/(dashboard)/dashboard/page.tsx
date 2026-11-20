@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 
 const COLORS = ["#1e3a5f", "#3b82f6", "#10b981", "#f59e0b"];
 
-const typeLabels: Record<string, string> = { auto: "Avtomobil", casco: "Kasko", property: "Əmlak", travel: "Səfər" };
+const typeLabels: Record<string, string> = { auto: "İcbari avto", casco: "Kasko", property: "İcbari əmlak", travel: "Səfər" };
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -151,7 +151,7 @@ export default function DashboardPage() {
                     <th className="text-right py-2 font-semibold">Cəmi müqavilə sayı</th>
                     <th className="text-right py-2 font-semibold">Cəmi sığorta haqqı</th>
                     <th className="text-right py-2 font-semibold">Komissiya</th>
-                    <th className="text-right py-2 font-semibold">Faiz</th>
+                    <th className="text-right py-2 font-semibold">Ortalama sığorta haqqı (AZN)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                       <td className="text-right py-2">{a.policy_count}</td>
                       <td className="text-right py-2">{formatCurrency(a.total_premium || 0)}</td>
                       <td className="text-right py-2">{formatCurrency(a.total_commission || 0)}</td>
-                      <td className="text-right py-2">{a.commission_rate}%</td>
+                      <td className="text-right py-2">{formatCurrency(Number(a.policy_count) ? Number(a.total_premium || 0) / Number(a.policy_count) : 0)}</td>
                     </tr>
                   ))}
                 </tbody>

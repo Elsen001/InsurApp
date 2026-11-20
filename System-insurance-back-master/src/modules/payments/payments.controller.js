@@ -15,6 +15,29 @@ const getAll = async (req, res) => {
   }
 };
 
+const exportData = async (req, res) => {
+  try {
+    const { format, from, to } = req.query;
+    const payments = await paymentsService.getPayments(req.user, { from, to });
+    if (format === 'excel') {
+      const workbook = await paymentsService.exportPaymentsExcel(payments);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=odenisler-${Date.now()}.xlsx`);
+      await workbook.xlsx.write(res);
+      res.end();
+    } else if (format === 'pdf') {
+      const pdf = await paymentsService.exportPaymentsPDF(payments);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=odenisler-${Date.now()}.pdf`);
+      res.send(pdf);
+    } else {
+      res.status(400).json({ success: false, message: 'format=excel və ya format=pdf olmalıdır' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const updateStatus = async (req, res) => {
   try {
     const { status, payment_method } = req.body;
@@ -37,4 +60,4 @@ const getStats = async (req, res) => {
   }
 };
 
-module.exports = { getAll, updateStatus, getStats };
+module.exports = { getAll, exportData, updateStatus, getStats };

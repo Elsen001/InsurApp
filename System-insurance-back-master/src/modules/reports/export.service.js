@@ -2,6 +2,15 @@ const db = require('../../config/db');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
+const formatDate = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[3]}.${match[2]}.${match[1]}`;
+  }
+  return new Date(value).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
 // Tarix aralığı filtri (verilmiş sütun üzrə)
 const applyDates = (q, filters = {}, col = 'created_at') => {
   if (filters.from) q = q.where(col, '>=', filters.from);
@@ -9,51 +18,69 @@ const applyDates = (q, filters = {}, col = 'created_at') => {
   return q;
 };
 
+const applyPolicyFilters = (q, filters = {}, alias = 'p') => {
+  q = applyDates(q, filters, `${alias}.created_at`);
+  if (filters.agent_id) q = q.where(`${alias}.agent_id`, filters.agent_id);
+  if (filters.product) q = q.where(`${alias}.product`, filters.product);
+  return q;
+};
+
+const applyCommissionFilters = (q, filters = {}) => {
+  q = applyDates(q, filters, 'c.created_at');
+  if (filters.agent_id) q = q.where('c.agent_id', filters.agent_id);
+  if (filters.product) {
+    q = q.join('policies as p', 'p.id', 'c.policy_id').where('p.product', filters.product);
+  }
+  return q;
+};
+
 const getSummary = async (filters = {}) => {
   // BUG DÜZƏLİŞİ: total_policies bütün statuslar, total_premium yalnız active — uyğunsuzluq
   // Həll: hər ikisi üçün eyni qayda — cancelled xaric
-  const [totalPolicies] = await applyDates(db('policies')
-    .whereIn('status', ['active', 'expired']), filters)
+  const [totalPolicies] = await applyPolicyFilters(db('policies as p')
+    .whereIn('p.status', ['active', 'expired']), filters)
     .count('* as count');
 
-  const [totalPremium] = await applyDates(db('policies')
-    .whereIn('status', ['active', 'expired']), filters)
-    .sum('premium_amount as total');
+  const [totalPremium] = await applyPolicyFilters(db('policies as p')
+    .whereIn('p.status', ['active', 'expired']), filters)
+    .sum('p.premium_amount as total');
 
-  const [totalCommissions] = await applyDates(db('commissions'), filters).sum('amount as total');
-  const [paidCommissions] = await applyDates(db('commissions').where('status', 'paid'), filters).sum('amount as total');
+  const [totalCommissions] = await applyCommissionFilters(db('commissions as c'), filters).sum('c.amount as total');
+  const [paidCommissions] = await applyCommissionFilters(db('commissions as c').where('c.status', 'paid'), filters).sum('c.amount as total');
 
   // BUG DÜZƏLİŞİ: ləğv edilmiş sığortalar növ bölgüsünə daxil edilməməlidir
-  const policiesByType = await applyDates(db('policies')
-    .whereIn('status', ['active', 'expired']), filters)
-    .select('type')
+  const policiesByType = await applyPolicyFilters(db('policies as p')
+    .whereIn('p.status', ['active', 'expired']), filters)
+    .select('p.type')
     .count('* as count')
-    .sum('premium_amount as total')
-    .groupBy('type');
+    .sum('p.premium_amount as total')
+    .groupBy('p.type');
 
   // Konkret sığorta məhsulu üzrə bölgü
-  const policiesByProduct = await applyDates(db('policies')
-    .whereIn('status', ['active', 'expired'])
-    .whereNotNull('product'), filters)
-    .select('product', 'product_label')
+  const policiesByProduct = await applyPolicyFilters(db('policies as p')
+    .whereIn('p.status', ['active', 'expired'])
+    .whereNotNull('p.product'), filters)
+    .select('p.product', 'p.product_label')
     .count('* as count')
-    .sum('premium_amount as total')
-    .groupBy('product', 'product_label');
+    .sum('p.premium_amount as total')
+    .groupBy('p.product', 'p.product_label');
 
   // BUG DÜZƏLİŞİ: Agent stats — policies və commissions ayrı-ayrı subquery ilə
   // əvvəlki double LEFT JOIN Cartesian product yaradırdı (agent 3 policy × 3 commission = 9 sətir)
-  const agents = await db('users').where({ role: 'agent' }).select('id', 'name', 'commission_rate');
+  let agentsQuery = db('users').where({ role: 'agent' }).select('id', 'name', 'commission_rate');
+  if (filters.agent_id) agentsQuery = db('users').where({ id: filters.agent_id }).select('id', 'name', 'commission_rate');
+  const agents = await agentsQuery;
 
   const agentStats = await Promise.all(agents.map(async (agent) => {
-    const [polStats] = await applyDates(db('policies')
-      .where({ agent_id: agent.id })
-      .whereIn('status', ['active', 'expired']), filters)
-      .count('id as policy_count')
-      .sum('premium_amount as total_premium');
+    const [polStats] = await applyPolicyFilters(db('policies as p')
+      .where('p.agent_id', agent.id)
+      .whereIn('p.status', ['active', 'expired']), filters)
+      .count('p.id as policy_count')
+      .sum('p.premium_amount as total_premium');
 
-    const [comStats] = await applyDates(db('commissions')
-      .where({ agent_id: agent.id }), filters)
-      .sum('amount as total_commission');
+    const [comStats] = await applyCommissionFilters(db('commissions as c')
+      .where('c.agent_id', agent.id), filters)
+      .sum('c.amount as total_commission');
 
     return {
       id: agent.id,
@@ -135,9 +162,10 @@ const exportExcel = async (filters = {}) => {
     .orderBy('policies.created_at', 'desc');
 
   if (filters.from) query = query.where('policies.created_at', '>=', filters.from);
-  if (filters.to) query = query.where('policies.created_at', '<=', filters.to);
+  if (filters.to) query = query.where('policies.created_at', '<=', `${filters.to} 23:59:59`);
   if (filters.type) query = query.where('policies.type', filters.type);
   if (filters.agent_id) query = query.where('policies.agent_id', filters.agent_id);
+  if (filters.product) query = query.where('policies.product', filters.product);
 
   const data = await query;
 
@@ -178,8 +206,8 @@ const exportExcel = async (filters = {}) => {
       type: typeLabels[row.type] || row.type,
       status: statusLabels[row.status] || row.status,
       payment_status: paymentLabels[row.payment_status] || (row.payment_status || '—'),
-      start_date: row.start_date ? new Date(row.start_date).toLocaleDateString('az-AZ') : '',
-      end_date: row.end_date ? new Date(row.end_date).toLocaleDateString('az-AZ') : '',
+      start_date: formatDate(row.start_date),
+      end_date: formatDate(row.end_date),
       premium_amount: Number(row.premium_amount),
       commission_amount: Number(row.commission_amount),
     });
@@ -202,7 +230,7 @@ const exportExcel = async (filters = {}) => {
 };
 
 const exportPDF = async (filters = {}) => {
-  const summary = await getSummary();
+  const summary = await getSummary(filters);
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -212,7 +240,7 @@ const exportPDF = async (filters = {}) => {
     doc.on('error', reject);
 
     doc.fontSize(20).text('Sığorta Hesabatı', { align: 'center' });
-    doc.fontSize(11).text(`Tarix: ${new Date().toLocaleDateString('az-AZ')}`, { align: 'center' });
+    doc.fontSize(11).text(`Tarix: ${formatDate(new Date())}`, { align: 'center' });
     doc.moveDown(1.5);
 
     // Ümumi statistika
@@ -274,7 +302,7 @@ const exportAgentExcel = async (agentId) => {
   sheet.getCell('A1').font = { bold: true, size: 14 };
   sheet.getCell('A2').value = `Email: ${report.agent.email}`;
   sheet.getCell('A3').value = `Komissiya faizi: ${report.agent.commission_rate}%`;
-  sheet.getCell('A4').value = `Hesabat tarixi: ${new Date().toLocaleDateString('az-AZ')}`;
+  sheet.getCell('A4').value = `Hesabat tarixi: ${formatDate(new Date())}`;
 
   // Növ üzrə xülasə
   const summarySheet = workbook.addWorksheet('Növ üzrə');
@@ -319,8 +347,8 @@ const exportAgentExcel = async (agentId) => {
       p.customer_phone || '',
       Number(p.premium_amount),
       Number(p.commission_amount),
-      p.start_date ? new Date(p.start_date).toLocaleDateString('az-AZ') : '',
-      p.end_date ? new Date(p.end_date).toLocaleDateString('az-AZ') : '',
+      formatDate(p.start_date),
+      formatDate(p.end_date),
       statusLabels[p.status] || p.status,
     ]);
   });
@@ -366,7 +394,7 @@ const exportAgentPDF = async (agentId) => {
     const statusLabels = { active: 'Aktiv', expired: 'Bitmiş', cancelled: 'Ləğv' };
 
     doc.fontSize(20).text('Agent Hesabatı', { align: 'center' });
-    doc.fontSize(11).text(`Tarix: ${new Date().toLocaleDateString('az-AZ')}`, { align: 'center' });
+    doc.fontSize(11).text(`Tarix: ${formatDate(new Date())}`, { align: 'center' });
     doc.moveDown(1.5);
 
     // Agent məlumatı
@@ -540,7 +568,7 @@ const exportAgentsPDF = async (role = 'all') => {
     doc.on('error', reject);
 
     doc.fontSize(18).text(title, { align: 'center' });
-    doc.fontSize(10).text(`Tarix: ${new Date().toLocaleDateString('az-AZ')}  ·  Cəmi: ${data.length}`, { align: 'center' });
+    doc.fontSize(10).text(`Tarix: ${formatDate(new Date())}  ·  Cəmi: ${data.length}`, { align: 'center' });
     doc.moveDown(1);
 
     // Cədvəl sütunları
@@ -597,14 +625,15 @@ const exportAgentsPDF = async (role = 'all') => {
 // Məhsul → filial → satıcı üzrə drill-down (hesabatlar səhifəsi üçün).
 // getSummary ilə eyni məntiq: status active/expired, tarix created_at üzrə.
 const getProductDrilldown = async (filters = {}) => {
-  const rows = await applyDates(
+  let query = applyPolicyFilters(
     db('policies as p')
       .join('users as u', 'u.id', 'p.agent_id')
       .whereIn('p.status', ['active', 'expired'])
       .whereNotNull('p.product'),
     filters,
-    'p.created_at'
-  )
+    'p'
+  );
+  const rows = await query
     .select(
       'p.product',
       'p.product_label',

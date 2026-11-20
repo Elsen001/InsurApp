@@ -14,7 +14,7 @@ const prodKey = (p: any) => p.product || p.type;
 const prodLabel = (p: any) =>
   p.product_label || PRODUCT_LABELS[p.product] || POLICY_TYPE_LABELS[p.type] || p.type || "—";
 const keyLabel = (k: string) => PRODUCT_LABELS[k] || POLICY_TYPE_LABELS[k] || k;
-import { Plus, X, ChevronDown, ChevronRight, FileText, FileSpreadsheet, Star, Filter } from "lucide-react";
+import { Plus, X, ChevronDown, ChevronRight, FileText, FileSpreadsheet, Star, Filter, Search } from "lucide-react";
 
 // İcbari və Könüllü şirkət seçimləri
 const ICBARI_COMPANIES = ["Atəşgah", "Paşa", "Mega", "Qala", "Xalq"];
@@ -36,6 +36,7 @@ export default function AgentsPage() {
   const [filialFilter, setFilialFilter] = useState("");
   const [addressFilter, setAddressFilter] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all"); // "all" | "5".."1" | "0" (qiymətləndirilməyib)
+  const [staffSearch, setStaffSearch] = useState("");
 
   const [loadError, setLoadError] = useState("");
 
@@ -139,6 +140,7 @@ export default function AgentsPage() {
   const matchesRating = (u: any) =>
     ratingFilter === "all" || (Number(u.rating) || 0) === Number(ratingFilter);
   const matchesFilters = (u: any) => matchesLocation(u) && matchesRating(u);
+  const matchesSearch = (u: any) => (u.name || "").toLowerCase().includes(staffSearch.trim().toLowerCase());
 
   // Ulduz təyini / dəyişməsi (yaratdıqdan sonra da)
   const setRating = async (u: any, n: number) => {
@@ -149,16 +151,17 @@ export default function AgentsPage() {
 
   const filteredAgents = agents.filter(agent => {
     const subs = agent.subagents || [];
-    if (roleFilter === "agent") return matchesFilters(agent);
-    if (roleFilter === "subagent") return subs.some(matchesFilters);
+    if (roleFilter === "agent") return matchesFilters(agent) && matchesSearch(agent);
+    if (roleFilter === "subagent") return subs.some((s: any) => matchesFilters(s) && matchesSearch(s));
     // "all": ulduz filtri agentin ÖZÜNƏ tətbiq olunur (subagentdən qalxmır);
     // ünvan/filial isə subagentdən yuxarı qalxa bilər
-    return matchesRating(agent) && (matchesLocation(agent) || subs.some(matchesLocation));
+    return matchesRating(agent) &&
+      ((matchesLocation(agent) && matchesSearch(agent)) || subs.some((s: any) => matchesLocation(s) && matchesSearch(s)));
   });
 
   // Subagent filtri: subagentlər əsas kart kimi (valideyn agent adı ilə)
   const subagentCards = agents.flatMap((a: any) =>
-    (a.subagents || []).filter(matchesFilters).map((s: any) => ({ ...s, role: "subagent", parent_name: a.name, subagents: [] }))
+    (a.subagents || []).filter((s: any) => matchesFilters(s) && matchesSearch(s)).map((s: any) => ({ ...s, role: "subagent", parent_name: a.name, subagents: [] }))
   );
 
   // Siyahıda göstəriləcək entitilər
@@ -169,8 +172,8 @@ export default function AgentsPage() {
   const filialOptions = Array.from(new Set(allStaff.map((u: any) => u.filial).filter(Boolean))) as string[];
   const addressOptions = Array.from(new Set(allStaff.map((u: any) => u.address).filter(Boolean))) as string[];
 
-  const clearFilters = () => { setRoleFilter("all"); setFilialFilter(""); setAddressFilter(""); setRatingFilter("all"); };
-  const hasFilters = roleFilter !== "all" || filialFilter !== "" || addressFilter !== "" || ratingFilter !== "all";
+  const clearFilters = () => { setRoleFilter("all"); setFilialFilter(""); setAddressFilter(""); setRatingFilter("all"); setStaffSearch(""); };
+  const hasFilters = roleFilter !== "all" || filialFilter !== "" || addressFilter !== "" || ratingFilter !== "all" || staffSearch !== "";
 
   const handleToggleActive = async (agent: any) => {
     await authApi.updateAgent(agent.id, { is_active: !agent.is_active });
@@ -452,6 +455,15 @@ export default function AgentsPage() {
             {typeFilter !== "all" && (
               <button onClick={() => setTypeFilter("all")} className="text-xs text-red-600 hover:underline">Təmizlə</button>
             )}
+            <div className="relative w-full sm:w-72 sm:ml-auto">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={staffSearch}
+                onChange={e => setStaffSearch(e.target.value)}
+                placeholder="Agent və ya subagent axtar..."
+                className="pl-9 h-9"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -464,7 +476,9 @@ export default function AgentsPage() {
           {displayList.map(agent => {
             const agentPolicies = getAgentPolicies(agent.id);
             const typeSummary = getTypeSummary(agent.id);
-            const isExpanded = expandedAgent === agent.id;
+            const isExpanded = expandedAgent === agent.id ||
+              (Boolean(staffSearch.trim()) && !matchesSearch(agent) &&
+                (agent.subagents || []).some((s: any) => matchesFilters(s) && matchesSearch(s)));
             const totalPremium = agentPolicies.reduce((s: number, p: any) => s + Number(p.premium_amount), 0);
             const totalCommission = agentPolicies.reduce((s: number, p: any) => s + Number(p.commission_amount || 0), 0);
 
@@ -572,13 +586,13 @@ export default function AgentsPage() {
                   {isExpanded && (
                     <div className="border-t">
                       {/* Subagentlər — rol filtri "agent" olanda gizlənir, digər filtrlərə görə süzülür */}
-                      {roleFilter !== "agent" && agent.subagents?.filter(matchesFilters).length > 0 && (
+                      {roleFilter !== "agent" && agent.subagents?.filter((s: any) => matchesFilters(s) && matchesSearch(s)).length > 0 && (
                         <div className="px-4 py-3 border-b bg-indigo-50/40">
                           <p className="text-xs font-semibold uppercase tracking-wider text-indigo-700 mb-2">
-                            Subagentlər ({agent.subagents.filter(matchesFilters).length})
+                            Subagentlər ({agent.subagents.filter((s: any) => matchesFilters(s) && matchesSearch(s)).length})
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {agent.subagents.filter(matchesFilters).map((s: any) => (
+                            {agent.subagents.filter((s: any) => matchesFilters(s) && matchesSearch(s)).map((s: any) => (
                               <div key={s.id} className="flex items-center gap-2 bg-white border border-indigo-200 rounded-lg px-3 py-1.5">
                                 <div className="w-6 h-6 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xs font-bold">
                                   {s.name.charAt(0)}

@@ -7,6 +7,7 @@ const { requireAdmin } = require('../../middleware/role');
 router.use(authenticate);
 
 router.get('/', ctrl.getAll);
+router.get('/export', ctrl.exportData);
 router.get('/stats', requireAdmin, ctrl.getStats);
 router.put('/:id/status', requireAdmin, ctrl.updateStatus);
 

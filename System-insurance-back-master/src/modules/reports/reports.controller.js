@@ -2,8 +2,8 @@ const reportsService = require('./export.service');
 
 const getSummary = async (req, res) => {
   try {
-    const { from, to } = req.query;
-    const summary = await reportsService.getSummary({ from, to });
+    const { from, to, agent_id, product } = req.query;
+    const summary = await reportsService.getSummary({ from, to, agent_id, product });
     res.json({ success: true, summary });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -12,8 +12,8 @@ const getSummary = async (req, res) => {
 
 const getProductDrilldown = async (req, res) => {
   try {
-    const { from, to } = req.query;
-    const rows = await reportsService.getProductDrilldown({ from, to });
+    const { from, to, agent_id, product } = req.query;
+    const rows = await reportsService.getProductDrilldown({ from, to, agent_id, product });
     res.json({ success: true, rows });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -66,8 +66,8 @@ const exportMyData = async (req, res) => {
 
 const exportData = async (req, res) => {
   try {
-    const { format, from, to, type, agent_id } = req.query;
-    const filters = { from, to, type, agent_id };
+    const { format, from, to, type, agent_id, product } = req.query;
+    const filters = { from, to, type, agent_id, product };
 
     if (format === 'excel') {
       const workbook = await reportsService.exportExcel(filters);

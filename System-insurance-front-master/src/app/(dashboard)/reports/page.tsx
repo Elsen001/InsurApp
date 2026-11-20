@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { reportsApi } from "@/lib/api";
+import { authApi, bonusesApi, reportsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
@@ -14,20 +14,36 @@ const typeLabels: Record<string, string> = { auto: "Avtomobil", casco: "Kasko", 
 export default function ReportsPage() {
   const [summary, setSummary] = useState<any>(null);
   const [drilldown, setDrilldown] = useState<any[]>([]); // məhsul→filial→satıcı sətirləri
+  const [bonusOptions, setBonusOptions] = useState<any[]>([]);
   const [drill, setDrill] = useState<{ product: string | null; filial: string | null }>({ product: null, filial: null });
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [bonusFilter, setBonusFilter] = useState("");
+  const [error, setError] = useState("");
 
-  const load = (f = from, t = to) => {
+  const getFilters = (f = from, t = to, assignment = bonusFilter) => {
+    const [agentId, product] = assignment ? assignment.split(":") : [];
+    return {
+      from: f || undefined,
+      to: t || undefined,
+      ...(agentId && product ? { agent_id: agentId, product } : {}),
+    };
+  };
+
+  const load = (f = from, t = to, assignment = bonusFilter) => {
     setLoading(true);
+    setError("");
     setDrill({ product: null, filial: null });
-    const filters = { from: f || undefined, to: t || undefined };
+    const filters = getFilters(f, t, assignment);
     Promise.all([
       reportsApi.getSummary(filters).then(res => setSummary(res.data.summary)),
-      reportsApi.getProductDrilldown(filters).then(res => setDrilldown(res.data.rows)).catch(() => setDrilldown([])),
-    ]).finally(() => setLoading(false));
+      reportsApi.getProductDrilldown(filters).then(res => setDrilldown(res.data.rows)),
+    ]).catch((e: any) => {
+      setError(e?.response?.data?.message || "Hesabat məlumatlarını yükləmək mümkün olmadı");
+      setDrilldown([]);
+    }).finally(() => setLoading(false));
   };
 
   const prodLabelFor = (key: string) =>
@@ -54,15 +70,26 @@ export default function ReportsPage() {
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    Promise.all([authApi.getStaff(), bonusesApi.getAll()])
+      .then(([staffRes, bonusRes]) => {
+        const staff = new Map<number, any>(staffRes.data.staff.map((u: any) => [u.id, u]));
+        setBonusOptions(bonusRes.data.bonuses
+          .filter((b: any) => staff.has(b.user_id))
+          .map((b: any) => ({ ...b, user: staff.get(b.user_id) })));
+      })
+      .catch((e: any) => setError(e?.response?.data?.message || "Bonus cədvəlini yükləmək mümkün olmadı"));
+  }, []);
+
   const handleExport = async (format: "excel" | "pdf") => {
     setExporting(format);
     try {
-      const filters = { from: from || undefined, to: to || undefined };
+      const filters = getFilters();
       const res = format === "excel" ? await reportsApi.exportExcel(filters) : await reportsApi.exportPDF(filters);
       const ext = format === "excel" ? "xlsx" : "pdf";
       downloadBlob(res.data, `sigorta-hesabat-${Date.now()}.${ext}`);
     } catch (e) {
-      console.error(e);
+      setError((e as any)?.response?.data?.message || "Hesabatı ixrac etmək mümkün olmadı");
     } finally {
       setExporting(null);
     }
@@ -88,8 +115,30 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      <div className="space-y-1.5">
+        <label htmlFor="bonus-report-filter" className="text-sm font-medium text-slate-700">Agentin bonus cədvəlinə görə filtr</label>
+        <select
+          id="bonus-report-filter"
+          value={bonusFilter}
+          onChange={e => {
+            setBonusFilter(e.target.value);
+            load(from, to, e.target.value);
+          }}
+          className="h-10 w-full sm:max-w-xl rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Bütün agentlər və məhsullar</option>
+          {bonusOptions.map(b => (
+            <option key={b.id} value={`${b.user_id}:${b.product}`}>
+              {b.user.name} — {b.product_label || PRODUCT_LABELS[b.product] || b.product} ({Number(b.percent).toFixed(2)}%)
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Tarix filtri */}
       <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} onApply={(f, t) => load(f, t)} />
+
+      {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>}
 
       {loading ? (
         <div className="flex justify-center py-24"><div className="animate-spin h-8 w-8 rounded-full border-4 border-primary border-t-transparent" /></div>

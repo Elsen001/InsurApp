@@ -20,7 +20,7 @@ function timeAgo(iso: string) {
   if (s < 60) return "indicə";
   if (s < 3600) return `${Math.floor(s / 60)} dəq əvvəl`;
   if (s < 86400) return `${Math.floor(s / 3600)} saat əvvəl`;
-  return new Date(iso).toLocaleDateString("az");
+  return new Date(iso).toLocaleDateString("az-AZ", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export function TopBar() {

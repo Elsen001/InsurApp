@@ -63,6 +63,8 @@ export const policiesApi = {
 
 export const paymentsApi = {
   getAll: (filters?: any) => api.get("/api/payments", { params: filters }),
+  export: (format: "excel" | "pdf", filters?: any) =>
+    api.get("/api/payments/export", { params: { format, ...filters }, responseType: "blob" }),
   updateStatus: (id: number, status: string, payment_method?: string) =>
     api.put(`/api/payments/${id}/status`, { status, payment_method }),
   getStats: () => api.get("/api/payments/stats"),

@@ -4,9 +4,10 @@ import { useSession } from "next-auth/react";
 import { paymentsApi } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, POLICY_TYPE_LABELS, formatCurrency, formatDate } from "@/lib/utils";
+import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, POLICY_TYPE_LABELS, formatCurrency, formatDate, toDateKey, downloadBlob } from "@/lib/utils";
 import { PRODUCT_LABELS } from "@/lib/products";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { FileSpreadsheet, FileText } from "lucide-react";
 
 // Müqavilə tipi: yeni məhsul, yoxsa köhnə tip
 const contractType = (p: any) =>
@@ -21,25 +22,45 @@ export default function PaymentsPage() {
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const [error, setError] = useState("");
 
   const load = async () => {
     setLoading(true);
-    const res = await paymentsApi.getAll();
-    setPayments(res.data.payments);
-    setLoading(false);
+    setError("");
+    try {
+      const res = await paymentsApi.getAll();
+      setPayments(res.data.payments);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || "Ödənişləri yükləmək mümkün olmadı");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
   // Tarix aralığı üzrə filtr (son ödəniş tarixinə — due_date görə, client-side)
   const inRange = (d?: string) => {
-    if (!d) return true;
-    const day = String(d).slice(0, 10);
+    if (!d) return !from && !to;
+    const day = toDateKey(d);
     if (from && day < from) return false;
     if (to && day > to) return false;
     return true;
   };
   const filtered = payments.filter(p => inRange(p.due_date));
+  const exportPayments = async (format: "excel" | "pdf") => {
+    setExporting(format);
+    setError("");
+    try {
+      const res = await paymentsApi.export(format, { from: from || undefined, to: to || undefined });
+      downloadBlob(res.data, `odenisler-${Date.now()}.${format === "excel" ? "xlsx" : "pdf"}`);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || "Ödənişləri ixrac etmək mümkün olmadı");
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const handleMarkPaid = async (id: number) => {
     setUpdating(id);
@@ -50,11 +71,12 @@ export default function PaymentsPage() {
 
   // S/S = ödənilməyən müqavilə (polis) sayı; ödənilənlər / ödənilməyənlər / hissəli qalan / cəmi
   const unpaidContracts = new Set(filtered.filter(p => p.status !== "paid").map(p => p.policy_id)).size;
+  const totalContracts = new Set(filtered.map(p => p.policy_id)).size;
   const paidTotal = filtered.filter(p => p.status === "paid").reduce((s, p) => s + Number(p.amount), 0);
   const unpaidTotal = filtered.filter(p => p.status !== "paid").reduce((s, p) => s + Number(p.amount), 0);
   // Hissəli = eyni polisə birdən çox ödəniş sətri olanlar; "qalan" = onların ödənilməyən hissəsi
   const paymentsPerPolicy: Record<string, number> = {};
-  filtered.forEach(p => { paymentsPerPolicy[p.policy_id] = (paymentsPerPolicy[p.policy_id] || 0) + 1; });
+  payments.forEach(p => { paymentsPerPolicy[p.policy_id] = (paymentsPerPolicy[p.policy_id] || 0) + 1; });
   const isInstallment = (p: any) => paymentsPerPolicy[p.policy_id] > 1;
   const installmentRemaining = filtered
     .filter(p => p.status !== "paid" && isInstallment(p))
@@ -85,11 +107,13 @@ export default function PaymentsPage() {
       });
       g.premium += Number(p.amount);
       g.total += 1;
+      g.customer_name = p.customer_name || g.customer_name;
       if (p.status === "paid") g.paid += 1;
       else g.debt += Number(p.amount);
       return acc;
     }, {})
   ) as any[];
+  installmentGroups.forEach(g => { g.remaining = g.total - g.paid; });
 
   // Düz (flat) ödəniş cədvəli üçün siyahı — seçilmiş bölməyə görə
   const flatList =
@@ -99,10 +123,27 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Ödənişlər</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold text-slate-900">Ödənişlər</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" loading={exporting === "excel"} onClick={() => exportPayments("excel")}>
+            <FileSpreadsheet size={16} className="mr-2" />Excel
+          </Button>
+          <Button variant="outline" loading={exporting === "pdf"} onClick={() => exportPayments("pdf")}>
+            <FileText size={16} className="mr-2" />PDF
+          </Button>
+        </div>
+      </div>
+      {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>}
 
       {/* Statistika */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-6">
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground">Cəmi müqavilə sayı</p>
+            <p className="text-2xl font-bold text-slate-800">{totalContracts}</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-sm text-muted-foreground">Ödənilməyən müqavilə sayı</p>
@@ -220,17 +261,19 @@ export default function PaymentsPage() {
                     <th className="text-left px-4 py-3 font-semibold">S/S</th>
                     <th className="text-left px-4 py-3 font-semibold">Müqavilə No</th>
                     <th className="text-left px-4 py-3 font-semibold">Satış tarixi</th>
-                    <th className="text-left px-4 py-3 font-semibold">Müqavilə tipi</th>
+                    <th className="text-left px-4 py-3 font-semibold">Sığorta növü</th>
                     <th className="text-right px-4 py-3 font-semibold">Sığorta haqqı</th>
+                    <th className="text-left px-4 py-3 font-semibold">Müştəri</th>
                     <th className="text-center px-4 py-3 font-semibold">Hissə sayı</th>
                     <th className="text-center px-4 py-3 font-semibold">Ödənilən hissə</th>
+                    <th className="text-center px-4 py-3 font-semibold">Qalan hissə sayı</th>
                     <th className="text-right px-4 py-3 font-semibold">Hissə borcu</th>
                   </tr>
                 </thead>
                 <tbody>
                   {installmentGroups.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-12 text-muted-foreground">Hissəli ödəniş yoxdur</td>
+                      <td colSpan={10} className="text-center py-12 text-muted-foreground">Hissəli ödəniş yoxdur</td>
                     </tr>
                   ) : (
                     installmentGroups.map((g, i) => (
@@ -240,8 +283,10 @@ export default function PaymentsPage() {
                         <td className="px-4 py-3">{g.start_date ? formatDate(g.start_date) : "—"}</td>
                         <td className="px-4 py-3">{g.type}</td>
                         <td className="px-4 py-3 text-right font-medium">{formatCurrency(g.premium)}</td>
+                        <td className="px-4 py-3">{g.customer_name || "—"}</td>
                         <td className="px-4 py-3 text-center">{g.total}</td>
                         <td className="px-4 py-3 text-center font-medium text-green-600">{g.paid}</td>
+                        <td className="px-4 py-3 text-center font-medium">{g.remaining}</td>
                         <td className={`px-4 py-3 text-right font-medium ${g.debt > 0 ? "text-amber-600" : ""}`}>{formatCurrency(g.debt)}</td>
                       </tr>
                     ))

@@ -45,7 +45,17 @@ export const formatCurrency = (amount: number) =>
   `${new Intl.NumberFormat("az-AZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount) || 0)} AZN`;
 
 export const formatDate = (date: string | Date) =>
-  new Date(date).toLocaleDateString("az-AZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+  typeof date === "string" && /^\d{4}-\d{2}-\d{2}/.test(date)
+    ? `${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)}`
+    : new Date(date).toLocaleDateString("az-AZ", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+export const toDateKey = (date: string | Date) => {
+  if (typeof date === "string") return date.slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export const formatDateTime = (date: string | Date) =>
   new Date(date).toLocaleString("az-AZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });

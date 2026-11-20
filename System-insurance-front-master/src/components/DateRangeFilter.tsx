@@ -1,6 +1,7 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { CalendarRange, Check, X } from "lucide-react";
+import { formatDate, toDateKey } from "@/lib/utils";
 
 type Props = {
   from: string;
@@ -10,7 +11,7 @@ type Props = {
   onApply: (from?: string, to?: string) => void;
 };
 
-const fmt = (d: Date) => d.toISOString().slice(0, 10);
+const fmt = (d: Date) => toDateKey(d);
 
 export function DateRangeFilter({ from, to, setFrom, setTo, onApply }: Props) {
   const today = new Date();
@@ -66,7 +67,7 @@ export function DateRangeFilter({ from, to, setFrom, setTo, onApply }: Props) {
           <span className="font-semibold text-slate-800">Tarix aralığı</span>
           {hasRange && (
             <span className="ml-1 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-              {from || "…"} — {to || "…"}
+              {from ? formatDate(from) : "…"} — {to ? formatDate(to) : "…"}
             </span>
           )}
         </div>
@@ -104,7 +105,7 @@ export function DateRangeFilter({ from, to, setFrom, setTo, onApply }: Props) {
         {/* Xüsusi aralıq */}
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-500">Başlanğıc</label>
+            <label className="text-xs font-medium text-slate-500">Başlama tarixi</label>
             <Input
               type="date"
               value={from}
@@ -115,7 +116,7 @@ export function DateRangeFilter({ from, to, setFrom, setTo, onApply }: Props) {
           </div>
           <span className="pb-2.5 text-slate-400">→</span>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-500">Son</label>
+            <label className="text-xs font-medium text-slate-500">Bitmə tarixi</label>
             <Input
               type="date"
               value={to}
