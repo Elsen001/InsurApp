@@ -80,9 +80,30 @@ const createAgent = async (req, res) => {
 
 const updateAgent = async (req, res) => {
   try {
-    const agent = await authService.updateAgent(req.params.id, req.body);
+    const updateSchema = z.object({
+      name: z.string().trim().min(2).optional(),
+      email: z.string().email().optional(),
+      commission_rate: z.number().min(0).max(100).optional(),
+      is_active: z.boolean().optional(),
+      password: z.string().min(6).optional(),
+      rating: z.number().int().min(0).max(5).optional(),
+      address: z.string().optional(),
+      vezife: z.string().optional(),
+      filial: z.string().optional(),
+      phone: z.string().optional(),
+      fin: z.string().optional(),
+      sv: z.string().optional(),
+      parent_agent_id: z.number().int().positive().nullable().optional(),
+      companies: z.object({
+        icbari: z.array(z.string()).optional(),
+        konullu: z.array(z.string()).optional(),
+      }).optional(),
+    }).strict().refine(data => Object.keys(data).length > 0, 'Yenilənəcək məlumat daxil edin');
+    const data = updateSchema.parse(req.body);
+    const agent = await authService.updateAgent(req.params.id, data);
     res.json({ success: true, agent });
   } catch (err) {
+    if (err.name === 'ZodError') return res.status(400).json({ success: false, message: err.errors[0].message });
     res.status(400).json({ success: false, message: err.message });
   }
 };
@@ -90,13 +111,28 @@ const updateAgent = async (req, res) => {
 // ============ Şifrə bərpası ============
 const requestReset = async (req, res) => {
   try {
-    const schema = z.object({ email: z.string().email('Düzgün email daxil edin') });
-    const { email } = schema.parse(req.body);
-    const result = await authService.requestPasswordReset(email);
+    const schema = z.object({
+      email: z.string().email('Düzgün email daxil edin'),
+      retry: z.boolean().optional(),
+    });
+    const { email, retry } = schema.parse(req.body);
+    const result = await authService.requestPasswordReset(email, retry);
     res.json({ success: true, ...result });
   } catch (err) {
     if (err.name === 'ZodError') return res.status(400).json({ success: false, message: err.errors[0].message });
     res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+const getResetStatus = async (req, res) => {
+  try {
+    const schema = z.object({ email: z.string().email('Düzgün email daxil edin') });
+    const { email } = schema.parse(req.body);
+    const result = await authService.getPasswordResetStatus(email);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    if (err.name === 'ZodError') return res.status(400).json({ success: false, message: err.errors[0].message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -136,5 +172,5 @@ const resolveReset = async (req, res) => {
 
 module.exports = {
   login, logout, getMe, getAgents, getStaff, createAgent, updateAgent,
-  requestReset, completeReset, listResetRequests, resolveReset,
+  requestReset, getResetStatus, completeReset, listResetRequests, resolveReset,
 };

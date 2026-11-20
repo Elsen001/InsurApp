@@ -35,6 +35,7 @@ export default function PoliciesPage() {
   const [policies, setPolicies] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -42,11 +43,21 @@ export default function PoliciesPage() {
   const [to, setTo] = useState("");
 
   useEffect(() => {
-    policiesApi.getAll().then(res => {
-      setPolicies(res.data.policies);
-      setFiltered(res.data.policies);
-    }).finally(() => setLoading(false));
-  }, []);
+    let active = true;
+    setLoading(true);
+    setLoadError("");
+    policiesApi.getAll(statusFilter === "all" ? undefined : { status: statusFilter })
+      .then(res => {
+        if (active) setPolicies(res.data.policies);
+      })
+      .catch((e: any) => {
+        if (active) setLoadError(e?.response?.data?.message || "Sığortaları yükləmək mümkün olmadı");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [statusFilter]);
 
   useEffect(() => {
     // Tarix aralığı — satış tarixinə (start_date) görə
@@ -130,6 +141,7 @@ export default function PoliciesPage() {
       <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} onApply={(f, t) => { setFrom(f || ""); setTo(t || ""); }} />
 
       {/* Cədvəl */}
+      {loadError && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3">{loadError}</div>}
       <Card>
         <CardHeader>
           <CardTitle>Cəmi: {filtered.length} sığorta</CardTitle>

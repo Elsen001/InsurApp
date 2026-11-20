@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,35 @@ export default function LoginPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [info, setInfo] = useState("");
+  const [resetStatus, setResetStatus] = useState<"pending" | "rejected" | "approved" | null>(null);
+
+  useEffect(() => {
+    if (mode !== "forgot" || resetStatus !== "pending" || !resetEmail) return;
+    let checking = false;
+    const checkStatus = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const res = await authApi.getPasswordResetStatus(resetEmail);
+        if (res.data.status === "approved") {
+          setResetStatus("approved");
+          setMode("reset");
+          setError("");
+          setInfo("Admin sorğunuzu təsdiqlədi. Yeni şifrənizi təyin edə bilərsiniz.");
+        } else if (res.data.status === "rejected") {
+          setResetStatus("rejected");
+          setInfo("");
+          setError("Admin şifrə bərpası sorğunuzu təsdiqləməyib. İstəsəniz, yeni sorğu göndərə bilərsiniz.");
+        }
+      } catch (err: any) {
+        setError(err.response?.data?.message || "Sorğunun statusunu yoxlamaq mümkün olmadı");
+      } finally {
+        checking = false;
+      }
+    };
+    const timer = setInterval(checkStatus, 5000);
+    return () => clearInterval(timer);
+  }, [mode, resetStatus, resetEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,14 +84,17 @@ export default function LoginPage() {
     setError("");
     setInfo("");
     try {
-      const res = await authApi.requestPasswordReset(resetEmail);
+      const res = await authApi.requestPasswordReset(resetEmail, resetStatus === "rejected");
       if (res.data?.status === "approved") {
+        setResetStatus("approved");
         setMode("reset");
         setInfo("Sorğunuz təsdiqlənib. Yeni şifrənizi təyin edin.");
+      } else if (res.data?.status === "rejected") {
+        setResetStatus("rejected");
+        setError("Admin şifrə bərpası sorğunuzu təsdiqləməyib. İstəsəniz, yeni sorğu göndərə bilərsiniz.");
       } else {
-        setInfo(
-          "Sorğunuz admin təsdiqinə göndərildi. Admin təsdiqlədikdən sonra bu bölməyə yenidən daxil olub yeni şifrə təyin edə bilərsiniz."
-        );
+        setResetStatus("pending");
+        setInfo("Sorğunuz admin təsdiqini gözləyir. Admin hələ təsdiqləməyib; təsdiqdən sonra yeni şifrə təyin edə bilərsiniz.");
       }
     } catch (err: any) {
       setError(err.response?.data?.message || "Xəta baş verdi");
@@ -242,6 +274,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => {
                   setMode("forgot");
+                  setResetStatus(null);
                   setError("");
                   setInfo("");
                   setResetEmail(email);
@@ -272,7 +305,7 @@ export default function LoginPage() {
                 </p>
               </div>
               <Button type="submit" className="w-full" loading={loading}>
-                Davam et
+                {resetStatus === "rejected" ? "Yeni sorğu göndər" : "Davam et"}
               </Button>
               <button
                 type="button"

@@ -36,7 +36,8 @@ export const authApi = {
   createSubagent: (data: any) => api.post("/api/auth/agents", { ...data, role: "subagent" }),
   updateAgent: (id: number, data: any) => api.put(`/api/auth/agents/${id}`, data),
   // Şifrə bərpası
-  requestPasswordReset: (email: string) => api.post("/api/auth/password-reset/request", { email }),
+  requestPasswordReset: (email: string, retry = false) => api.post("/api/auth/password-reset/request", { email, retry }),
+  getPasswordResetStatus: (email: string) => api.post("/api/auth/password-reset/status", { email }),
   completePasswordReset: (email: string, password: string) =>
     api.post("/api/auth/password-reset/complete", { email, password }),
   getResetRequests: () => api.get("/api/auth/password-reset/requests"),
@@ -53,7 +54,7 @@ export const bonusesApi = {
 };
 
 export const policiesApi = {
-  getAll: () => api.get("/api/policies"),
+  getAll: (filters?: any) => api.get("/api/policies", { params: filters }),
   getOne: (id: number) => api.get(`/api/policies/${id}`),
   create: (data: any) => api.post("/api/policies", data),
   update: (id: number, data: any) => api.put(`/api/policies/${id}`, data),

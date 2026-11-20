@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { authApi, bonusesApi, reportsApi } from "@/lib/api";
+import { bonusesApi, reportsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
@@ -22,6 +22,7 @@ export default function ReportsPage() {
   const [to, setTo] = useState("");
   const [bonusFilter, setBonusFilter] = useState("");
   const [error, setError] = useState("");
+  const [drilldownError, setDrilldownError] = useState("");
 
   const getFilters = (f = from, t = to, assignment = bonusFilter) => {
     const [agentId, product] = assignment ? assignment.split(":") : [];
@@ -35,15 +36,23 @@ export default function ReportsPage() {
   const load = (f = from, t = to, assignment = bonusFilter) => {
     setLoading(true);
     setError("");
+    setDrilldownError("");
     setDrill({ product: null, filial: null });
     const filters = getFilters(f, t, assignment);
     Promise.all([
-      reportsApi.getSummary(filters).then(res => setSummary(res.data.summary)),
-      reportsApi.getProductDrilldown(filters).then(res => setDrilldown(res.data.rows)),
-    ]).catch((e: any) => {
-      setError(e?.response?.data?.message || "Hesabat məlumatlarını yükləmək mümkün olmadı");
-      setDrilldown([]);
-    }).finally(() => setLoading(false));
+      reportsApi.getSummary(filters)
+        .then(res => setSummary(res.data.summary))
+        .catch((e: any) => {
+          setSummary(null);
+          setError(e?.response?.data?.message || "Hesabat məlumatlarını yükləmək mümkün olmadı");
+        }),
+      reportsApi.getProductDrilldown(filters)
+        .then(res => setDrilldown(res.data.rows))
+        .catch((e: any) => {
+          setDrilldown([]);
+          setDrilldownError(e?.response?.data?.message || "Məhsul detalları yüklənmədi");
+        }),
+    ]).finally(() => setLoading(false));
   };
 
   const prodLabelFor = (key: string) =>
@@ -71,13 +80,8 @@ export default function ReportsPage() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    Promise.all([authApi.getStaff(), bonusesApi.getAll()])
-      .then(([staffRes, bonusRes]) => {
-        const staff = new Map<number, any>(staffRes.data.staff.map((u: any) => [u.id, u]));
-        setBonusOptions(bonusRes.data.bonuses
-          .filter((b: any) => staff.has(b.user_id))
-          .map((b: any) => ({ ...b, user: staff.get(b.user_id) })));
-      })
+    bonusesApi.getAll()
+      .then(res => setBonusOptions(res.data.bonuses))
       .catch((e: any) => setError(e?.response?.data?.message || "Bonus cədvəlini yükləmək mümkün olmadı"));
   }, []);
 
@@ -129,7 +133,7 @@ export default function ReportsPage() {
           <option value="">Bütün agentlər və məhsullar</option>
           {bonusOptions.map(b => (
             <option key={b.id} value={`${b.user_id}:${b.product}`}>
-              {b.user.name} — {b.product_label || PRODUCT_LABELS[b.product] || b.product} ({Number(b.percent).toFixed(2)}%)
+              {b.user_name} — {b.product_label || PRODUCT_LABELS[b.product] || b.product} ({Number(b.percent).toFixed(2)}%)
             </option>
           ))}
         </select>
@@ -139,6 +143,7 @@ export default function ReportsPage() {
       <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} onApply={(f, t) => load(f, t)} />
 
       {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>}
+      {drilldownError && <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">Filial və satıcı detalları əlçatan deyil: {drilldownError}</div>}
 
       {loading ? (
         <div className="flex justify-center py-24"><div className="animate-spin h-8 w-8 rounded-full border-4 border-primary border-t-transparent" /></div>

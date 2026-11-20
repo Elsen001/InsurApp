@@ -19,7 +19,7 @@ const policySchema = z.object({
 
 const getAll = async (req, res) => {
   try {
-    const policies = await policiesService.getPolicies(req.user);
+    const policies = await policiesService.getPolicies(req.user, { status: req.query.status });
     res.json({ success: true, policies });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

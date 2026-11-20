@@ -97,13 +97,29 @@ const createAgent = async (data) => {
 };
 
 const updateAgent = async (id, data) => {
-  const { name, commission_rate, is_active, password, rating } = data;
+  const current = await db('users').where({ id }).first();
+  if (!current || !['agent', 'subagent'].includes(current.role)) throw new Error('Agent və ya subagent tapılmadı');
+
   const update = {};
-  if (name) update.name = name;
-  if (commission_rate !== undefined) update.commission_rate = commission_rate;
-  if (is_active !== undefined) update.is_active = is_active;
-  if (rating !== undefined) update.rating = Math.max(0, Math.min(5, Number(rating) || 0));
-  if (password) update.password = await bcrypt.hash(password, 10);
+  for (const field of ['name', 'email', 'commission_rate', 'is_active', 'rating']) {
+    if (data[field] !== undefined) update[field] = data[field];
+  }
+  for (const field of ['address', 'vezife', 'filial', 'phone', 'fin', 'sv']) {
+    if (data[field] !== undefined) update[field] = data[field] || null;
+  }
+  if (data.email && data.email !== current.email) {
+    const duplicate = await db('users').where({ email: data.email }).whereNot({ id }).first();
+    if (duplicate) throw new Error('Bu email artıq istifadə olunur');
+  }
+  if (data.parent_agent_id !== undefined) {
+    if (current.role !== 'subagent') throw new Error('Yalnız subagent üçün valideyn agent dəyişdirilə bilər');
+    if (data.parent_agent_id === null) throw new Error('Subagent üçün valideyn agent seçilməlidir');
+    const parent = await db('users').where({ id: data.parent_agent_id, role: 'agent' }).first();
+    if (!parent) throw new Error('Seçilmiş valideyn agent tapılmadı');
+    update.parent_agent_id = data.parent_agent_id;
+  }
+  if (data.companies !== undefined) update.companies = JSON.stringify(data.companies);
+  if (data.password) update.password = await bcrypt.hash(data.password, 10);
   await db('users').where({ id }).update(update);
   return getMe(id);
 };
@@ -122,7 +138,7 @@ const recentApproved = (email) =>
     .first();
 
 // Agent/subagent şifrə sorğusu göndərir. YALNIZ yaxın vaxtda admin təsdiqi varsa "approved" qaytarır.
-const requestPasswordReset = async (email) => {
+const requestPasswordReset = async (email, retry = false) => {
   const user = await db('users').where({ email }).first();
   if (!user) throw new Error('Bu email ilə istifadəçi tapılmadı');
   if (user.role === 'admin') throw new Error('Admin şifrəsi bu yolla dəyişdirilmir');
@@ -131,17 +147,30 @@ const requestPasswordReset = async (email) => {
   const approved = await recentApproved(email);
   if (approved) return { status: 'approved' };
 
-  // Köhnəlmiş təsdiqləri etibarsız et → yeni sorğu yenidən admin təsdiqi tələb etsin
-  await db('password_resets').where({ email, status: 'approved' }).update({ status: 'expired' });
-
   // Gözləyən sorğu varsa təkrar yaratma
   const pending = await db('password_resets')
     .where({ email, status: 'pending' })
     .first();
   if (pending) return { status: 'pending' };
 
+  // Köhnəlmiş təsdiqləri etibarsız et → yeni sorğu yenidən admin təsdiqi tələb etsin
+  await db('password_resets').where({ email, status: 'approved' }).update({ status: 'expired' });
+
+  const latest = await db('password_resets').where({ email }).orderBy('id', 'desc').first();
+  if (latest?.status === 'rejected' && !retry) return { status: 'rejected' };
+
   await db('password_resets').insert({ user_id: user.id, email, status: 'pending' });
   return { status: 'pending' };
+};
+
+const getPasswordResetStatus = async (email) => {
+  const request = await db('password_resets').where({ email }).orderBy('id', 'desc').first();
+  if (!request) return { status: 'none' };
+  if (request.status === 'approved') {
+    const approved = await recentApproved(email);
+    return { status: approved ? 'approved' : 'expired' };
+  }
+  return { status: request.status };
 };
 
 // Admin: sorğuların siyahısı (gözləyənlər əvvəldə)
@@ -176,5 +205,5 @@ const completePasswordReset = async (email, newPassword) => {
 
 module.exports = {
   login, getMe, getAgents, getStaff, createAgent, updateAgent,
-  requestPasswordReset, listResetRequests, resolveReset, completePasswordReset,
+  requestPasswordReset, getPasswordResetStatus, listResetRequests, resolveReset, completePasswordReset,
 };

@@ -10,6 +10,7 @@ router.get('/me', authenticate, ctrl.getMe);
 
 // Şifrə bərpası — açıq (login-siz)
 router.post('/password-reset/request', ctrl.requestReset);
+router.post('/password-reset/status', ctrl.getResetStatus);
 router.post('/password-reset/complete', ctrl.completeReset);
 // Şifrə bərpası — admin idarəetməsi
 router.get('/password-reset/requests', authenticate, requireAdmin, ctrl.listResetRequests);

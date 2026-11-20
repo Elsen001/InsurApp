@@ -14,11 +14,32 @@ const prodKey = (p: any) => p.product || p.type;
 const prodLabel = (p: any) =>
   p.product_label || PRODUCT_LABELS[p.product] || POLICY_TYPE_LABELS[p.type] || p.type || "—";
 const keyLabel = (k: string) => PRODUCT_LABELS[k] || POLICY_TYPE_LABELS[k] || k;
-import { Plus, X, ChevronDown, ChevronRight, FileText, FileSpreadsheet, Star, Filter, Search } from "lucide-react";
+import { Plus, X, ChevronDown, ChevronRight, FileText, FileSpreadsheet, Star, Filter, Search, Pencil } from "lucide-react";
 
 // İcbari və Könüllü şirkət seçimləri
 const ICBARI_COMPANIES = ["Atəşgah", "Paşa", "Mega", "Qala", "Xalq"];
 const KONULLU_COMPANIES = ["Atəşgah", "Paşa", "Mega", "Qala", "Xalq", "Atəşgah Həyat", "Qala Həyat", "Paşa Həyat"];
+type AgentEditForm = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  vezife: string;
+  filial: string;
+  fin: string;
+  sv: string;
+  commission_rate: string;
+  password: string;
+  is_active: boolean;
+  parent_agent_id: string;
+  icbari: string[];
+  konullu: string[];
+};
+
+const emptyEditForm = (): AgentEditForm => ({
+  name: "", email: "", phone: "", address: "", vezife: "", filial: "", fin: "", sv: "",
+  commission_rate: "", password: "", is_active: true, parent_agent_id: "", icbari: [], konullu: [],
+});
 
 export default function AgentsPage() {
   const router = useRouter();
@@ -26,6 +47,11 @@ export default function AgentsPage() {
   const [allPolicies, setAllPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editUserId, setEditUserId] = useState("");
+  const [editForm, setEditForm] = useState(emptyEditForm());
+  const [updating, setUpdating] = useState(false);
+  const [editError, setEditError] = useState("");
   const [form, setForm] = useState({ name: "", email: "", password: "", address: "", vezife: "", filial: "", phone: "", fin: "", sv: "", rating: 0, role: "agent", parent_agent_id: "", icbari: [] as string[], konullu: [] as string[] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -169,8 +195,73 @@ export default function AgentsPage() {
 
   // Filial və ünvan seçimləri (mövcud dəyərlərdən)
   const allStaff = [...agents, ...agents.flatMap((a: any) => a.subagents || [])];
+  const selectedEditUser = allStaff.find((u: any) => String(u.id) === editUserId);
   const filialOptions = Array.from(new Set(allStaff.map((u: any) => u.filial).filter(Boolean))) as string[];
   const addressOptions = Array.from(new Set(allStaff.map((u: any) => u.address).filter(Boolean))) as string[];
+
+  const selectEditUser = (id: string) => {
+    setEditUserId(id);
+    const user = allStaff.find((u: any) => String(u.id) === id);
+    setEditError("");
+    let companyPrefs = user?.companies || {};
+    if (typeof companyPrefs === "string") {
+      try {
+        companyPrefs = JSON.parse(companyPrefs);
+      } catch {
+        setEditUserId("");
+        setEditError("İstifadəçinin sığorta şirkətləri məlumatını oxumaq mümkün olmadı");
+        setEditForm(emptyEditForm());
+        return;
+      }
+    }
+    setEditForm(user ? {
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      address: user.address || "",
+      vezife: user.vezife || "",
+      filial: user.filial || "",
+      fin: user.fin || "",
+      sv: user.sv || "",
+      commission_rate: String(user.commission_rate ?? ""),
+      password: "",
+      is_active: Boolean(user.is_active),
+      parent_agent_id: user.parent_agent_id ? String(user.parent_agent_id) : "",
+      icbari: Array.isArray(companyPrefs.icbari) ? companyPrefs.icbari : [],
+      konullu: Array.isArray(companyPrefs.konullu) ? companyPrefs.konullu : [],
+    } : emptyEditForm());
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEditUser) return;
+    setUpdating(true);
+    setEditError("");
+    try {
+      await authApi.updateAgent(selectedEditUser.id, {
+        name: editForm.name,
+        email: editForm.email,
+        phone: editForm.phone,
+        address: editForm.address,
+        vezife: editForm.vezife,
+        filial: editForm.filial,
+        fin: editForm.fin,
+        sv: editForm.sv,
+        commission_rate: Number(editForm.commission_rate),
+        is_active: editForm.is_active,
+        companies: { icbari: editForm.icbari, konullu: editForm.konullu },
+        ...(editForm.password ? { password: editForm.password } : {}),
+        ...(selectedEditUser.role === "subagent" ? { parent_agent_id: Number(editForm.parent_agent_id) } : {}),
+      });
+      setShowEditForm(false);
+      setEditUserId("");
+      await load();
+    } catch (err: any) {
+      setEditError(err?.response?.data?.message || "Məlumatları yeniləmək mümkün olmadı");
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const clearFilters = () => { setRoleFilter("all"); setFilialFilter(""); setAddressFilter(""); setRatingFilter("all"); setStaffSearch(""); };
   const hasFilters = roleFilter !== "all" || filialFilter !== "" || addressFilter !== "" || ratingFilter !== "all" || staffSearch !== "";
@@ -205,6 +296,9 @@ export default function AgentsPage() {
           </Button>
           <Button onClick={() => setShowForm(!showForm)}>
             {showForm ? <><X size={16} className="mr-2" />Bağla</> : <><Plus size={16} className="mr-2" />Yeni Agent</>}
+          </Button>
+          <Button variant="outline" onClick={() => setShowEditForm(!showEditForm)}>
+            {showEditForm ? <><X size={16} className="mr-2" />Bağla</> : <><Pencil size={16} className="mr-2" />Agent / Subagent yenilə</>}
           </Button>
         </div>
       </div>
@@ -357,6 +451,91 @@ export default function AgentsPage() {
 
               {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">{error}</div>}
               <Button type="submit" loading={saving}>{form.role === "subagent" ? "Subagent yarat" : "Agent yarat"}</Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {showEditForm && (
+        <Card className="border-primary/30">
+          <CardHeader><CardTitle>Agent / Subagent məlumatlarını yenilə</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Yenilənəcək istifadəçi</Label>
+                <select
+                  value={editUserId}
+                  onChange={e => selectEditUser(e.target.value)}
+                  required
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Agent və ya subagent seçin</option>
+                  {allStaff.map((user: any) => (
+                    <option key={user.id} value={user.id}>
+                      {user.role === "subagent" ? "Subagent" : "Agent"} — {user.name} ({user.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedEditUser && (
+                <>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1"><Label>Ad Soyad</Label><Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required /></div>
+                    <div className="space-y-1"><Label>Email</Label><Input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} required /></div>
+                    <div className="space-y-1"><Label>Mobil nömrə</Label><Input value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>Ünvan</Label><Input value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>Vəzifə</Label><Input value={editForm.vezife} onChange={e => setEditForm(f => ({ ...f, vezife: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>Filial / nümayəndəlik</Label><Input value={editForm.filial} onChange={e => setEditForm(f => ({ ...f, filial: e.target.value }))} /></div>
+                    <div className="space-y-1"><Label>FİN</Label><Input value={editForm.fin} onChange={e => setEditForm(f => ({ ...f, fin: e.target.value.toUpperCase() }))} /></div>
+                    <div className="space-y-1"><Label>Ş/V nömrəsi</Label><Input value={editForm.sv} onChange={e => setEditForm(f => ({ ...f, sv: e.target.value.toUpperCase() }))} /></div>
+                    <div className="space-y-1"><Label>Komissiya faizi</Label><Input type="number" min="0" max="100" step="0.01" value={editForm.commission_rate} onChange={e => setEditForm(f => ({ ...f, commission_rate: e.target.value }))} required /></div>
+                    {selectedEditUser.role === "subagent" && (
+                      <div className="space-y-1">
+                        <Label>Valideyn agent</Label>
+                        <select value={editForm.parent_agent_id} onChange={e => setEditForm(f => ({ ...f, parent_agent_id: e.target.value }))} required className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                          <option value="">Agent seçin</option>
+                          {agents.map((agent: any) => <option key={agent.id} value={agent.id}>{agent.name} ({agent.email})</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div className="space-y-1"><Label>Yeni şifrə (dəyişmək istəyəndə)</Label><Input type="password" minLength={6} value={editForm.password} onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))} /></div>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {([
+                      ["icbari", "İcbari sığorta növləri", ICBARI_COMPANIES],
+                      ["konullu", "Könüllü sığorta növləri", KONULLU_COMPANIES],
+                    ] as const).map(([field, label, options]) => (
+                      <fieldset key={field} className="space-y-2">
+                        <legend className="text-sm font-medium">{label}</legend>
+                        <div className="flex flex-wrap gap-2">
+                          {options.map(company => {
+                            const selected = editForm[field].includes(company);
+                            return (
+                              <label key={company} className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => setEditForm(f => ({
+                                    ...f,
+                                    [field]: selected ? f[field].filter(x => x !== company) : [...f[field], company],
+                                  }))}
+                                />
+                                {company}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={editForm.is_active} onChange={e => setEditForm(f => ({ ...f, is_active: e.target.checked }))} />
+                    Hesab aktivdir
+                  </label>
+                  {editError && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">{editError}</div>}
+                  <Button type="submit" loading={updating}>Məlumatları yadda saxla</Button>
+                </>
+              )}
             </form>
           </CardContent>
         </Card>

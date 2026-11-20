@@ -8,7 +8,7 @@ const generatePolicyNumber = () => {
   return `${prefix}-${year}-${random}`;
 };
 
-const getPolicies = async (user) => {
+const getPolicies = async (user, filters = {}) => {
   // BUG DÜZƏLİŞİ: policies.* + users.id toqquşması → explicit sütunlar
   // BUG DÜZƏLİŞİ: N+1 query → payments LEFT JOIN ilə tək sorğu
   let query = db('policies')
@@ -40,6 +40,10 @@ const getPolicies = async (user) => {
 
   if (user.role === 'agent' || user.role === 'subagent') {
     query = query.where('policies.agent_id', user.id);
+  }
+
+  if (['active', 'upcoming', 'expired', 'terminated', 'cancelled'].includes(filters.status)) {
+    query = query.where('policies.status', filters.status);
   }
 
   const rows = await query;
