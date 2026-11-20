@@ -30,8 +30,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (mode !== "forgot" || resetStatus !== "pending" || !resetEmail) return;
     let checking = false;
+    let statusEndpointUnavailable = false;
     const checkStatus = async () => {
-      if (checking) return;
+      if (checking || statusEndpointUnavailable) return;
       checking = true;
       try {
         const res = await authApi.getPasswordResetStatus(resetEmail);
@@ -46,7 +47,13 @@ export default function LoginPage() {
           setError("Admin şifrə bərpası sorğunuzu təsdiqləməyib. İstəsəniz, yeni sorğu göndərə bilərsiniz.");
         }
       } catch (err: any) {
-        setError(err.response?.data?.message || "Sorğunun statusunu yoxlamaq mümkün olmadı");
+        setInfo("");
+        if (err.response?.status === 404) {
+          statusEndpointUnavailable = true;
+          setError("Şifrə bərpasının status ünvanı tapılmadı. Backend-i yeniləyib yenidən başladın.");
+        } else {
+          setError(err.response?.data?.message || "Sorğunun statusunu yoxlamaq mümkün olmadı");
+        }
       } finally {
         checking = false;
       }
@@ -84,20 +91,48 @@ export default function LoginPage() {
     setError("");
     setInfo("");
     try {
-      const res = await authApi.requestPasswordReset(resetEmail, resetStatus === "rejected");
+      let status = resetStatus;
+      if (status !== "rejected") {
+        const statusRes = await authApi.getPasswordResetStatus(resetEmail);
+        status = statusRes.data.status;
+
+        if (status === "pending") {
+          setResetStatus("pending");
+          setInfo("Sorğunuz admin təsdiqini gözləyir. Admin hələ təsdiqləməyib; təsdiqdən sonra yeni şifrə təyin edə bilərsiniz.");
+          return;
+        }
+        if (status === "rejected") {
+          setResetStatus("rejected");
+          setError("Admin şifrə bərpası sorğunuzu təsdiqləməyib. Yeni sorğu göndərmək üçün düyməni seçin.");
+          return;
+        }
+        if (status === "approved") {
+          setResetStatus("approved");
+          setMode("reset");
+          setInfo("Admin sorğunuzu təsdiqlədi. Yeni şifrənizi təyin edə bilərsiniz.");
+          return;
+        }
+      }
+
+      const res = await authApi.requestPasswordReset(resetEmail, status === "rejected");
       if (res.data?.status === "approved") {
         setResetStatus("approved");
         setMode("reset");
         setInfo("Sorğunuz təsdiqlənib. Yeni şifrənizi təyin edin.");
       } else if (res.data?.status === "rejected") {
         setResetStatus("rejected");
-        setError("Admin şifrə bərpası sorğunuzu təsdiqləməyib. İstəsəniz, yeni sorğu göndərə bilərsiniz.");
+        setError("Admin şifrə bərpası sorğunuzu təsdiqləməyib. Yeni sorğu göndərmək üçün düyməni seçin.");
       } else {
         setResetStatus("pending");
         setInfo("Sorğunuz admin təsdiqini gözləyir. Admin hələ təsdiqləməyib; təsdiqdən sonra yeni şifrə təyin edə bilərsiniz.");
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Xəta baş verdi");
+      setInfo("");
+      if (err.response?.status === 404) {
+        setError("Şifrə bərpasının status ünvanı tapılmadı. Backend-i yeniləyib yenidən başladın.");
+      } else {
+        setError(err.response?.data?.message || "Xəta baş verdi");
+      }
     } finally {
       setLoading(false);
     }
@@ -296,15 +331,24 @@ export default function LoginPage() {
                   type="email"
                   placeholder="email@sigorta.az"
                   value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
+                  onChange={(e) => {
+                    setResetEmail(e.target.value);
+                    setResetStatus(null);
+                    setError("");
+                    setInfo("");
+                  }}
                   required
                   autoComplete="email"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Sorğunuz admin təsdiqinə göndəriləcək. Təsdiqləndikdən sonra yeni şifrə təyin edə bilərsiniz.
+                  {resetStatus === "pending"
+                    ? "Sorğunuz admin təsdiqini gözləyir."
+                    : resetStatus === "rejected"
+                      ? "Admin sorğunuzu rədd edib. Yalnız yeni sorğu göndərmək istədikdə davam edin."
+                      : "Sorğunuz admin təsdiqinə göndəriləcək. Təsdiqləndikdən sonra yeni şifrə təyin edə bilərsiniz."}
                 </p>
               </div>
-              <Button type="submit" className="w-full" loading={loading}>
+              <Button type="submit" className="w-full" loading={loading} disabled={resetStatus === "pending"}>
                 {resetStatus === "rejected" ? "Yeni sorğu göndər" : "Davam et"}
               </Button>
               <button
